@@ -1557,6 +1557,7 @@ function atcTick(dt,frozen){
   for(const t of A.timers.filter(t=>t.t<=A.rt)){A.timers.splice(A.timers.indexOf(t),1);t.fn();}
   if(frozen)return;
   A.t+=dt;if(NET.on&&P)syncHuman();
+  if(NET.on){A.nextArr=A.nextDep=1e12;}
   if(A.t>=A.nextArr){if(A.list.filter(a=>a.kind==='arr').length<5)spawnArr();A.nextArr=A.t+rand(GM!=='play'?140:95,GM!=='play'?200:150);}
   if(A.t>=A.nextDep){if(A.list.filter(a=>a.kind==='dep'&&a.st==='wait').length<3)spawnDep();A.nextDep=A.t+rand(GM!=='play'?150:90,GM!=='play'?220:150);}
   for(const a of A.list){moveAc(a,dt);a.trailT+=dt;if(a.trailT>4&&a.st==='air'){a.trailT=0;a.trail.push({x:a.x,y:a.y});if(a.trail.length>6)a.trail.shift();}}
@@ -1713,7 +1714,7 @@ function renderStrips(){
 function initAtcSim(){
   Object.assign(A,{list:[],t:0,rt:0,ts:1,paused:false,sel:null,nextArr:3,nextDep:14,score:0,st:{landed:0,departed:0,conf:0,ga:0,lost:0},pairs:new Set(),conflict:new Set(),timers:[],items:[]});
   $('#aLog').innerHTML='';
-  aLog('SYS',`You are Geneva Arrival and Tower combined. Runway 22 in use, wind 230/5, QNH ${QNH}, transition altitude ${TA} ft. Arrivals are squares, departures circles${NET.on?', your friends’ A320 is the green diamond':''}.`,'sys');
+  aLog('SYS',`You are Geneva Arrival and Tower combined. Runway 22 in use, wind 230/5, QNH ${QNH}, transition altitude ${TA} ft. ${NET.on?'Only your party’s A320 (the green diamond) is on frequency: no computer traffic.':'Arrivals are squares, departures circles.'}`,'sys');
 }
 function showAtcUI(){
   MODE='atc';ROLE='ATC';show('atc');
