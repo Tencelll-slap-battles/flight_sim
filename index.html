@@ -155,6 +155,23 @@ h1,h2,h3{text-wrap:balance;margin:0}
 #intBtn.live{background:#2f6fd0;color:#fff}
 .strip.human>span:first-child{background:#3ef07a}
 
+/* ---------- difficulty levels */
+#pilot[data-diff="medium"] .pull,#pilot[data-diff="medium"] .medHide{display:none!important}
+#pilot[data-diff="easy"] .full,#pilot[data-diff="super"] .full{display:none!important}
+#pilot:not([data-diff="easy"]):not([data-diff="super"]) #simple{display:none!important}
+#simple .sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+#simple .sg{display:grid;gap:8px;align-content:start;background:var(--panel-lo);border:1px solid var(--edge);border-radius:6px;padding:12px;min-width:0}
+#simple .sg .row{gap:6px}
+#simple .btn{font-size:14px;padding:10px 14px}
+#simple .btn.big{font-size:17px;padding:16px 18px;font-weight:700;width:100%}
+#simple .btn.sel{background:#173a2a;border-color:var(--green);color:var(--green)}
+#simple output{font-family:var(--mono);font-size:22px;color:#ffb347;background:#0b0d0f;padding:4px 10px;border-radius:3px;min-width:84px;text-align:center}
+#simple .note{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+#sWarn{font-family:var(--mono);color:var(--red);font-weight:700;min-height:1.2em}
+#sTalk{width:100%;min-height:64px;font-size:17px;font-weight:700;background:#1f2a22;border:1px solid #3c6b49;color:#bff5cf;border-radius:6px;cursor:pointer;touch-action:none;user-select:none}
+#sTalk.live{background:var(--red);border-color:#ff9a9a;color:#fff}
+.diffpick label{align-items:center}
+
 /* ---------- debrief */
 .deb{display:grid;gap:14px;max-width:760px;margin:30px auto}
 .deb h2{font-size:32px}
@@ -216,6 +233,13 @@ h1,h2,h3{text-wrap:balance;margin:0}
       <label><input type="radio" name="gm" id="gmPlay" value="play"> <span><b>Play</b> — the real thing. No hints, no suggested phrases. ATC only understands proper phraseology.</span></label>
     </fieldset>
     <fieldset>
+      <legend class="lbl">Cockpit level</legend>
+      <label><input type="radio" name="diff" id="dfSuper" value="super"> <span><b>Super easy</b> — five big buttons; the autopilot follows ATC and can land for you</span></label>
+      <label><input type="radio" name="diff" id="dfEasy" value="easy"> <span><b>Easy</b> — one simple control panel, radio tunes itself</span></label>
+      <label><input type="radio" name="diff" id="dfMedium" value="medium" checked> <span><b>Medium</b> — the real cockpit, with the fiddly parts automatic</span></label>
+      <label><input type="radio" name="diff" id="dfHard" value="hard"> <span><b>Hard</b> — the full A320 cockpit, every switch</span></label>
+    </fieldset>
+    <fieldset>
       <legend class="lbl">Flight (pilot seats)</legend>
       <label><input type="radio" name="scn" id="scnTo" value="to" checked> <span>Full flight: takeoff 22, radar vectors, ILS 22 (about 15 min)</span></label>
       <label><input type="radio" name="scn" id="scnApp" value="app"> <span>Approach only: base leg, ILS 22 to touchdown (about 5 min)</span></label>
@@ -271,11 +295,11 @@ h1,h2,h3{text-wrap:balance;margin:0}
 
   <div id="coach"><span class="k" id="coachK">COACH</span><div class="t"><div id="coachText">…</div><div id="coachSayWrap" hidden>Say: “<span id="coachSay"></span>” <button class="btn" data-act="sayit" style="margin-left:6px;padding:3px 8px">Send this</button></div></div></div>
 
-  <div class="glare">
+  <div class="glare full">
     <div class="fcuw"><span class="lbl">SPD</span><div class="win"><output id="fSpd">250</output></div>
-      <div class="knobs" id="kSpd"><button class="btn" data-act="spd:-10">−10</button><button class="btn" data-act="spd:-1">−1</button><button class="btn" data-act="spd:1">+1</button><button class="btn" data-act="spd:10">+10</button><button class="btn" data-act="spd:pull">PULL</button></div></div>
+      <div class="knobs" id="kSpd"><button class="btn" data-act="spd:-10">−10</button><button class="btn" data-act="spd:-1">−1</button><button class="btn" data-act="spd:1">+1</button><button class="btn" data-act="spd:10">+10</button><button class="btn pull" data-act="spd:pull">PULL</button></div></div>
     <div class="fcuw"><span class="lbl">HDG</span><div class="win"><output id="fHdg">223</output></div>
-      <div class="knobs" id="kHdg"><button class="btn" data-act="hdg:-10">−10</button><button class="btn" data-act="hdg:-1">−1</button><button class="btn" data-act="hdg:1">+1</button><button class="btn" data-act="hdg:10">+10</button><button class="btn" data-act="hdg:pull">PULL</button></div></div>
+      <div class="knobs" id="kHdg"><button class="btn" data-act="hdg:-10">−10</button><button class="btn" data-act="hdg:-1">−1</button><button class="btn" data-act="hdg:1">+1</button><button class="btn" data-act="hdg:10">+10</button><button class="btn pull" data-act="hdg:pull">PULL</button></div></div>
     <div class="pbs">
       <button class="pb" data-act="loc" id="pbLOC">LOC</button>
       <button class="pb" data-act="ap1" id="pbAP1">AP1</button>
@@ -283,9 +307,9 @@ h1,h2,h3{text-wrap:balance;margin:0}
       <button class="pb" data-act="appr" id="pbAPPR">APPR</button>
     </div>
     <div class="fcuw"><span class="lbl">ALT</span><div class="win"><output id="fAlt">5000</output></div>
-      <div class="knobs" id="kAlt"><button class="btn" data-act="alt:-1000">−1000</button><button class="btn" data-act="alt:-100">−100</button><button class="btn" data-act="alt:100">+100</button><button class="btn" data-act="alt:1000">+1000</button><button class="btn" data-act="alt:pull">PULL</button></div></div>
+      <div class="knobs" id="kAlt"><button class="btn" data-act="alt:-1000">−1000</button><button class="btn" data-act="alt:-100">−100</button><button class="btn" data-act="alt:100">+100</button><button class="btn" data-act="alt:1000">+1000</button><button class="btn pull" data-act="alt:pull">PULL</button></div></div>
     <div class="fcuw"><span class="lbl">V/S</span><div class="win"><output id="fVs">-----</output></div>
-      <div class="knobs" id="kVs"><button class="btn" data-act="vs:-100">−100</button><button class="btn" data-act="vs:100">+100</button><button class="btn" data-act="vs:pull">PULL</button></div></div>
+      <div class="knobs" id="kVs"><button class="btn" data-act="vs:-100">−100</button><button class="btn" data-act="vs:100">+100</button><button class="btn pull" data-act="vs:pull">PULL</button></div></div>
     <div class="pbs">
       <button class="pb" data-act="ls" id="pbLS">LS</button>
       <button class="pb" data-act="rng" id="pbRNG">RNG 20</button>
@@ -296,8 +320,10 @@ h1,h2,h3{text-wrap:balance;margin:0}
   <div class="displays">
     <div class="du"><canvas id="cPFD" width="400" height="400" aria-label="Primary flight display"></canvas><div class="cap"><span class="lbl">PFD</span><span class="lbl" id="pfdNote"></span></div></div>
     <div class="du"><canvas id="cND" width="400" height="400" aria-label="Navigation display"></canvas><div class="cap"><span class="lbl">ND · ROSE NAV</span></div></div>
-    <div class="du"><canvas id="cEWD" width="400" height="400" aria-label="Engine and warning display"></canvas><div class="cap"><span class="lbl">E/WD</span></div></div>
+    <div class="du full"><canvas id="cEWD" width="400" height="400" aria-label="Engine and warning display"></canvas><div class="cap"><span class="lbl">E/WD</span></div></div>
   </div>
+
+  <div class="pnl" id="simple" style="margin-bottom:10px"><h3 id="sTitle">Controls</h3><div id="sWarn" aria-live="assertive"></div><div class="sgrid" id="sGrid"></div></div>
 
   <div class="ped">
     <div class="pnl" id="pnlComms">
@@ -313,7 +339,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
       </div>
     </div>
 
-    <div class="pnl" id="pnlRadio">
+    <div class="pnl full" id="pnlRadio">
       <h3>Radio management panel</h3>
       <div class="rmp">
         <div class="f"><span class="lbl">Active</span><b id="rAct">121.680</b></div>
@@ -324,7 +350,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
       <div class="kb" id="kb"></div>
     </div>
 
-    <div class="pnl" id="pnlLevers">
+    <div class="pnl full" id="pnlLevers">
       <h3>Pedestal</h3>
       <div class="levers">
         <div class="thr" id="thr"><div class="track" id="thrTrack"><div class="handle" id="thrHandle"></div></div></div>
@@ -333,15 +359,15 @@ h1,h2,h3{text-wrap:balance;margin:0}
         <div class="gear"><span class="lbl">Landing gear</span>
           <button class="btn" data-act="gear" id="gearBtn">GEAR ▼ DOWN</button>
           <div class="gearInd" id="gearInd"><span>▼</span><span>▼</span><span>▼</span></div>
-          <button class="pb" data-act="splr" id="pbSPLR">GND SPLR ARM</button>
-          <label class="lbl" for="sbRange">Speed brake</label><input id="sbRange" type="range" min="0" max="1" step="0.25" value="0">
+          <button class="pb medHide" data-act="splr" id="pbSPLR">GND SPLR ARM</button>
+          <label class="lbl medHide" for="sbRange">Speed brake</label><input class="medHide" id="sbRange" type="range" min="0" max="1" step="0.25" value="0">
         </div>
       </div>
-      <div class="row"><span class="lbl">Autobrake</span><button class="pb" data-act="ab:LO" id="abLO">LO</button><button class="pb" data-act="ab:MED" id="abMED">MED</button><button class="pb" data-act="ab:MAX" id="abMAX">MAX</button><button class="pb" data-act="tocfg" id="pbTOC">T.O CONFIG</button></div>
+      <div class="row medHide"><span class="lbl">Autobrake</span><button class="pb" data-act="ab:LO" id="abLO">LO</button><button class="pb" data-act="ab:MED" id="abMED">MED</button><button class="pb" data-act="ab:MAX" id="abMAX">MAX</button><button class="pb" data-act="tocfg" id="pbTOC">T.O CONFIG</button></div>
       <div class="row"><div class="stick" id="stick" aria-label="Sidestick"><i id="stickKnob"></i></div><div><span class="lbl">Sidestick</span><p class="fine" style="margin:4px 0">Drag, or ↑↓←→ / W A S D. Pull back (↓) to pitch up.</p><button class="btn" id="brkBtn">HOLD BRAKES (B)</button></div></div>
     </div>
 
-    <div class="pnl" id="pnlCrew">
+    <div class="pnl full" id="pnlCrew">
       <h3 id="crewTitle">Crew</h3>
       <div class="crew" id="crew"></div>
       <h3>Checklists</h3>
@@ -390,7 +416,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 <!-- ================= LOBBY ================= -->
 <section id="lobby" hidden>
   <div class="deb">
-    <div class="lbl">Multiplayer lobby</div>
+    <div class="lbl">Multiplayer lobby · version 8</div>
     <h2>Game code <span class="mono" id="lbCode" style="color:var(--green)"></span></h2>
     <p class="sub">Friends open this website, choose Join and type the code. Everyone takes a seat. Empty pilot seats are flown by the computer, and with no human controller the computer runs ATC.</p>
     <div class="seats" id="lbSeats"></div>
@@ -399,6 +425,11 @@ h1,h2,h3{text-wrap:balance;margin:0}
       <fieldset><legend class="lbl">Mode</legend>
         <label><input type="radio" name="lbgm" id="lbTut" checked> <span><b>Practice</b> — coach hints for everyone</span></label>
         <label><input type="radio" name="lbgm" id="lbPlay"> <span><b>Play</b> — no hints</span></label></fieldset>
+      <fieldset><legend class="lbl">Cockpit level</legend>
+        <label><input type="radio" name="lbdiff" id="lbSuper"> <span>Super easy</span></label>
+        <label><input type="radio" name="lbdiff" id="lbEasy"> <span>Easy</span></label>
+        <label><input type="radio" name="lbdiff" id="lbMedium" checked> <span>Medium</span></label>
+        <label><input type="radio" name="lbdiff" id="lbHard"> <span>Hard</span></label></fieldset>
       <fieldset><legend class="lbl">Flight</legend>
         <label><input type="radio" name="lbscn" id="lbTo" checked> <span>Full flight from runway 22</span></label>
         <label><input type="radio" name="lbscn" id="lbApp"> <span>Approach only</span></label></fieldset>
@@ -585,7 +616,9 @@ function normalize(text){
 /* =====================================================================
    App state + navigation
    ===================================================================== */
-let MODE='menu', ROLE='CPT', SCN='to', GM='tut', FO_RADIO=false;
+let MODE='menu', ROLE='CPT', SCN='to', GM='tut', FO_RADIO=false, DIFF='medium';
+const readDiff=()=>$('#dfSuper').checked?'super':$('#dfEasy').checked?'easy':$('#dfHard').checked?'hard':'medium';
+const simpleUI=()=>DIFF==='easy'||DIFF==='super';
 function show(id){for(const s of ['menu','pilot','atc','debrief','lobby'])$('#'+s).hidden=s!==id;window.scrollTo(0,0);}
 function humanCPT(){return NET.on?NET.humans.CPT:ROLE==='CPT';}
 function humanFO(){return NET.on?NET.humans.FO:ROLE==='FO';}
@@ -971,11 +1004,11 @@ function setClr(o){
   if(o.alt!==undefined){R.clr.alt=o.alt;R.clr.dir=Math.sign(o.alt-P.alt)||1;R.clr.busted=false;}
   if(o.hdg!==undefined)R.clr.hdg=o.hdg;
   if(o.ils)R.clr.ils=true;
-  if(!humanCPT()){
+  if(!humanCPT()||DIFF==='super'){
     later(1.6,()=>{const p=P;const bits=[];
       if(o.hdg!==undefined){p.fcu.hdg=o.hdg;p.lat=p.lat==='LOC'||p.lat==='LAND'?p.lat:'HDG';bits.push(`Heading ${hdgStr(o.hdg)}`);}
       if(o.alt!==undefined){p.fcu.alt=o.alt;pullAlt(p);bits.push(`${o.alt} feet`);}
-      if(bits.length)crewSay('CPT',bits.join(', ')+', set.');});
+      if(bits.length)crewSay(humanCPT()?'FO':'CPT',bits.join(', ')+', set'+(humanCPT()?' on the autopilot.':'.'));});
   }
 }
 
@@ -1107,9 +1140,62 @@ function simTick(dt,frozen){
   if(frozen)return;
   simT+=dt;
   const p=P;if(p.crashed||p.done)return;
-  updStick(dt);step(dt);systems(p,dt);radioTick();coTick();expTick();capTick();
+  updStick(dt);step(dt);systems(p,dt);autoAssist(p);radioTick();coTick();expTick();capTick();
   if(humanCPT()&&!humanFO()&&!p.onGround&&p.ra>2000&&p.flapLever>0&&p.ias>SPD.S+15&&!Crew.done.cptFlapNag){Crew.done.cptFlapNag=1;crewSay('FO','Speed is above S. Flaps zero?');}
   if(humanCPT()&&!humanFO()&&!p.onGround&&!p.landed&&p.gearLever==='DOWN'&&p.ra>400&&p.vs>300&&Crew.co.posclimb==='done'&&!Crew.done.gnag&&simT-(p.liftT||0)>12){Crew.done.gnag=1;crewSay('FO','Gear up?');}
+}
+function autoAssist(p){
+  if(DIFF==='hard')return;
+  if(!p.onGround&&p.ra>1500&&p.autobrake==='MAX')p.autobrake='MED';
+  if(!p.onGround&&(p.gearLever==='DOWN'||p.ra<3000)&&!p.splrArm)p.splrArm=true;
+  if(!simpleUI())return;
+  // easy + super: radio tunes itself, climb thrust and speeds are automatic
+  if(R.pending&&p.com1.act!==R.pending.unit){p.com1.sby=p.com1.act;p.com1.act=R.pending.unit;}
+  if(!p.onGround&&p.athr&&p.lever>25.5&&p.ra>THR_RED)p.lever=25;
+  if(!p.onGround&&p.vert!=='SRS'){const appr=R.flags.base||SCN==='app'||R.clr.ils;p.fcu.spd=(appr?[210,180,165,155,SPD.VAPP]:[250,210,185,160,SPD.VAPP])[p.flapLever];}
+  if(DIFF!=='super')return;
+  if(R.clr.ils&&!p.superAppr&&!p.onGround){p.superAppr=true;p.locArmed=!['LOC','LOC*','LAND'].includes(p.lat);p.gsArmed=true;p.ls=true;}
+  if(!p.onGround&&p.ra<20&&p.vs<0&&p.lever>0&&p.gearPos>0.9)p.lever=0;
+  if(p.landed&&!p.superRev&&simT-p.landT>0.6){p.superRev=true;p.lever=-20;p.abActive=true;}
+  if(p.landed&&p.lever<0&&p.ias<70)p.lever=0;
+}
+const DIFF_NAME={super:'SUPER EASY',easy:'EASY',medium:'MEDIUM',hard:'HARD'};
+function buildSimple(){
+  const g=$('#sGrid');if(!g)return;
+  const talk=`<div class="sg"><span class="lbl">Radio${userRadio()?'':' (your First Officer talks)'}</span><button id="sTalk">● HOLD TO TALK (T)</button><span class="note" id="sRadio"></span></div>`;
+  const flaps=DIFF==='super'?`<div class="sg" id="sFlaps"><span class="lbl">Flaps <output id="sFlapV" style="font-size:16px;min-width:0"></output></span><div class="row"><button class="btn" data-act="flapstep:-1">▲ Flaps up</button><button class="btn" data-act="flapstep:1">▼ Flaps down</button></div></div>`
+    :`<div class="sg" id="sFlaps"><span class="lbl">Flaps</span><div class="row">${['0','1','2','3','FULL'].map((n,i)=>`<button class="btn" data-act="flap:${i}" data-sflap="${i}">${n}</button>`).join('')}</div></div>`;
+  const gear=`<div class="sg" id="sGear"><span class="lbl">Landing gear</span><button class="btn big" data-act="gear" id="sGearBtn">GEAR</button></div>`;
+  let html='';
+  if(ROLE==='FO'){
+    $('#sTitle').textContent=DIFF==='super'?'Your 4 buttons':'Your controls (First Officer)';
+    html=`<div class="sg" id="sCall"><span class="lbl">Callout</span><button class="btn big" data-act="cosmart" id="sCallBtn">Callout</button><span class="note">Lights up when it’s time: V1, Rotate…</span></div>`+gear+flaps+(DIFF==='easy'?`<div class="sg" id="sChk"><span class="lbl">Checklist</span><button class="btn big" data-act="chkall">Checklist done</button></div>`:'')+talk;
+  }else{
+    $('#sTitle').textContent=DIFF==='super'?'Your 5 buttons (steer with the arrow keys or the stick)':'Your controls (Captain)';
+    const thr=DIFF==='super'?`<div class="sg" id="sThr"><span class="lbl">Thrust</span><button class="btn big" data-act="super" id="sThrBtn">TAKEOFF</button></div>`
+      :`<div class="sg" id="sThr"><span class="lbl">Thrust</span><div class="row"><button class="btn" data-act="thr:-20" data-sthr="-20">Reverse</button><button class="btn" data-act="thr:0" data-sthr="0">Idle</button><button class="btn" data-act="thr:25" data-sthr="25">Climb</button><button class="btn" data-act="thr:35" data-sthr="35">Takeoff</button></div></div>`;
+    const ap=`<div class="sg" id="sAP"><span class="lbl">Autopilot</span><button class="btn big" data-act="ap1" id="sAPBtn">AUTOPILOT</button>${DIFF==='easy'?'<button class="btn" data-act="appr" id="sAPPR">Fly the ILS (APPR)</button>':'<span class="note">Follows ATC by itself and lands the plane</span>'}</div>`;
+    const steer=`<div class="sg" id="sStick"><span class="lbl">Steering</span><div class="row"><div class="stick" id="stick2" aria-label="Sidestick"><i id="stickKnob2"></i></div><span class="note">Pull back (↓ or S) to lift the nose at 145 kt</span></div></div>`;
+    const fcu=DIFF==='easy'?`<div class="sg" id="sHdg"><span class="lbl">Heading</span><div class="row"><button class="btn" data-act="hdg:-10">−10</button><output id="sHdgV"></output><button class="btn" data-act="hdg:10">+10</button></div></div><div class="sg" id="sAlt"><span class="lbl">Altitude</span><div class="row"><button class="btn" data-act="alt:-1000">−1000</button><output id="sAltV"></output><button class="btn" data-act="alt:1000">+1000</button></div></div>`:'';
+    html=thr+flaps+gear+ap+talk+steer+fcu;
+  }
+  g.innerHTML=html;
+  bindPtt($('#sTalk'),'pilot');
+  const pad=$('#stick2');if(pad)bindStick(pad,$('#stickKnob2'));
+}
+function syncSimple(){
+  if(!simpleUI()||!P)return;const p=P;
+  const w=p.warn.filter(x=>x.l==='r').map(x=>x.t+(x.sub?' '+x.sub:''));$('#sWarn').textContent=w.join(' · ');
+  $$('[data-sthr]').forEach(b=>b.classList.toggle('sel',+b.dataset.sthr===Math.round(p.lever)));
+  $$('[data-sflap]').forEach(b=>b.classList.toggle('sel',+b.dataset.sflap===p.flapLever));
+  const fv=$('#sFlapV');if(fv)fv.value=['0','1','2','3','FULL'][p.flapLever];
+  const gb=$('#sGearBtn');if(gb)gb.textContent=p.gearPos>0.99?'GEAR ▼ DOWN':p.gearPos<0.01?'GEAR ▲ UP':'GEAR MOVING…';
+  const ab=$('#sAPBtn');if(ab){ab.textContent=p.ap?'AUTOPILOT ON':'AUTOPILOT OFF';ab.classList.toggle('sel',p.ap);}
+  const ap=$('#sAPPR');if(ap)ap.classList.toggle('sel',p.locArmed||p.gsArmed||['LOC','G/S','LAND'].includes(p.lat)||p.vert==='G/S');
+  const tb=$('#sThrBtn');if(tb){tb.textContent=p.onGround&&!p.landed&&!p.toArmed?'TAKEOFF':'THRUST: AUTO';tb.disabled=!(p.onGround&&!p.landed&&!p.toArmed);}
+  const hv=$('#sHdgV');if(hv)hv.value=hdgStr(p.fcu.hdg);const av=$('#sAltV');if(av)av.value=String(p.fcu.alt);
+  const rr=$('#sRadio');if(rr)rr.textContent=`On ${UNITS[p.com1.act]||'COM1'} ${fmtF(p.com1.act)} (tunes itself)`;
+  const cb=$('#sCallBtn');if(cb){const o=CO.find(c=>Crew.co[c.id]==='open');cb.textContent=o?`Say “${o.label}”`:'Callout';cb.classList.toggle('sel',!!o);}
 }
 function phaseTab(){
   const p=P;
@@ -1151,31 +1237,31 @@ function coachStep(){
     if(!p.toConfigOk)return{t:'<b>Press T.O CONFIG</b> to test the takeoff configuration. The T.O memo turns green.',sel:'#pbTOC'};
     if(!chkComplete('bto'))return{t:'<b>Run the Before Takeoff checklist.</b> Tap each line.',sel:'#chkList'};
     if(!R.cleared)return{t:'Wait for the takeoff clearance.'};
-    if(!p.toArmed)return{t:'<b>Cleared for takeoff.</b> Set the thrust levers to FLX/MCT (key 4). SRS and RWY appear on the PFD.',sel:'[data-act="thr:35"]'};
+    if(!p.toArmed)return{t:DIFF==='super'?'<b>Cleared for takeoff.</b> Press TAKEOFF.':simpleUI()?'<b>Cleared for takeoff.</b> Press Thrust: Takeoff.':'<b>Cleared for takeoff.</b> Set the thrust levers to FLX/MCT (key 4). SRS and RWY appear on the PFD.',sel:'[data-act="thr:35"]'};
     if(p.ias<SPD.VR-3)return{t:`Keep it straight. At VR <b>${SPD.VR} kt</b> pull the sidestick back (hold ↓ or S) and rotate to about 15° nose up. Don’t go past 11.5° before the wheels leave the ground.`};
     return{t:'<b>Rotate now:</b> hold ↓ / S. Aim for 15° pitch, then follow the green flight director bars.',sel:'#stick'};
   }
   if(!p.onGround&&!p.landed){
     if(p.gearLever==='DOWN'&&p.vs>200&&p.ra<2000&&Crew.co.posclimb==='done'&&!R.flags.ils)return{t:'FO called “Positive climb”. <b>Call “Gear up”.</b>',sel:'[data-act="cmd:gearup"]'};
-    if(p.ra>THR_RED&&p.lever>25.5)return{t:'<b>LVR CLB is flashing.</b> Pull the thrust levers back to CL (key 3). The autothrust takes over.',sel:'[data-act="thr:25"]'};
+    if(p.ra>THR_RED&&p.lever>25.5&&!simpleUI())return{t:'<b>LVR CLB is flashing.</b> Pull the thrust levers back to CL (key 3). The autothrust takes over.',sel:'[data-act="thr:25"]'};
     if(p.flapLever>0&&p.ias>SPD.S&&p.vs>0&&!R.flags.base)return{t:`Above S speed (${SPD.S} kt). <b>Call “Flaps zero”.</b>`,sel:'[data-act="cmd:f0"]'};
     if(!p.ap&&p.ra>400&&!R.flags.ils&&p.flapLever===0)return{t:'<b>Engage the autopilot</b> (AP1), or keep flying by hand with the flight director.',sel:'#pbAP1'};
     const c=R.clr;
-    if(c.hdg!==undefined&&p.fcu.hdg!==c.hdg&&!(p.lat==='LOC'||p.lat==='LAND'))return{t:`ATC cleared heading <b>${hdgStr(c.hdg)}</b>. Set it with the HDG buttons, then PULL.`,sel:'#kHdg'};
+    if(DIFF!=='super'&&c.hdg!==undefined&&p.fcu.hdg!==c.hdg&&!(p.lat==='LOC'||p.lat==='LAND'))return{t:`ATC cleared heading <b>${hdgStr(c.hdg)}</b>. Set it with the HDG buttons, then PULL.`,sel:'#kHdg'};
     if(c.hdg!==undefined&&p.lat!=='HDG'&&p.lat.indexOf('LOC')<0&&p.lat!=='LAND')return{t:'Heading is set. <b>Press HDG PULL</b> to fly it.',sel:'[data-act="hdg:pull"]'};
-    if(c.alt!==undefined&&!c.ils&&p.fcu.alt!==c.alt)return{t:`ATC cleared <b>${c.alt} ft</b>. Set it with the ALT buttons, then PULL.`,sel:'#kAlt'};
+    if(DIFF!=='super'&&c.alt!==undefined&&!c.ils&&p.fcu.alt!==c.alt)return{t:`ATC cleared <b>${c.alt} ft</b>. Set it with the ALT buttons, then PULL.`,sel:'#kAlt'};
     if(c.alt!==undefined&&!c.ils&&Math.abs(p.alt-c.alt)>200&&!['OP CLB','OP DES','ALT*','V/S','G/S','G/S*','LAND','FLARE','ROLL OUT'].includes(p.vert))return{t:'Altitude is set. <b>Press ALT PULL</b> to climb or descend.',sel:'[data-act="alt:pull"]'};
-    if(c.ils&&!p.locArmed&&!p.gsArmed&&!['LOC','LOC*','LAND'].includes(p.lat))return{t:'Cleared for the ILS. <b>Press APPR</b> to arm LOC and G/S.',sel:'#pbAPPR'};
+    if(DIFF!=='super'&&c.ils&&!p.locArmed&&!p.gsArmed&&!['LOC','LOC*','LAND'].includes(p.lat))return{t:'Cleared for the ILS. <b>Press APPR</b> to arm LOC and G/S.',sel:'#pbAPPR'};
     if((R.flags.desc||SCN==='app')&&p.autobrake==='MAX')return{t:'Prepare for landing: <b>set AUTO BRK MED</b> (MAX is for takeoff).',sel:'#abMED'};
-    if(R.flags.base&&p.fcu.spd>210&&p.flapLever===0)return{t:'Slow down for the approach: <b>set SPD 210</b> (the autothrust follows).',sel:'#kSpd'};
+    if(!simpleUI()&&R.flags.base&&p.fcu.spd>210&&p.flapLever===0)return{t:'Slow down for the approach: <b>set SPD 210</b> (the autothrust follows).',sel:'#kSpd'};
     if(R.flags.base&&p.ias<228&&p.flapLever===0)return{t:'Below 230 kt. <b>Call “Flaps one”.</b>',sel:'[data-act="cmd:f1"]'};
-    if(c.ils&&p.flapLever===1&&p.fcu.spd>180)return{t:'<b>Set SPD 180</b>, then call Flaps two below 200 kt.',sel:'#kSpd'};
+    if(!simpleUI()&&c.ils&&p.flapLever===1&&p.fcu.spd>180)return{t:'<b>Set SPD 180</b>, then call Flaps two below 200 kt.',sel:'#kSpd'};
     if(c.ils&&p.flapLever===1&&p.ias<198)return{t:'<b>Call “Flaps two”.</b>',sel:'[data-act="cmd:f2"]'};
     if(p.flapLever>=2&&p.gearLever==='UP'&&(p.vert==='G/S*'||p.vert==='G/S'||rwy(p).along<10))return{t:'Glide slope coming in. <b>Call “Gear down”.</b>',sel:'[data-act="cmd:geardn"]'};
-    if(p.gearLever==='DOWN'&&p.flapLever===2&&p.fcu.spd>160)return{t:'<b>Set SPD 160</b>, then Flaps three below 185 kt.',sel:'#kSpd'};
+    if(!simpleUI()&&p.gearLever==='DOWN'&&p.flapLever===2&&p.fcu.spd>160)return{t:'<b>Set SPD 160</b>, then Flaps three below 185 kt.',sel:'#kSpd'};
     if(p.gearLever==='DOWN'&&p.flapLever===2&&p.ias<183)return{t:'<b>Call “Flaps three”.</b>',sel:'[data-act="cmd:f3"]'};
     if(p.flapLever===3&&p.ias<176)return{t:`<b>Call “Flaps full”</b> and set SPD ${SPD.VAPP} (VAPP).`,sel:'[data-act="cmd:f4"]'};
-    if(p.flapLever===4&&p.fcu.spd>SPD.VAPP)return{t:`<b>Set SPD ${SPD.VAPP}</b> (VAPP).`,sel:'#kSpd'};
+    if(!simpleUI()&&p.flapLever===4&&p.fcu.spd>SPD.VAPP)return{t:`<b>Set SPD ${SPD.VAPP}</b> (VAPP).`,sel:'#kSpd'};
     if(p.flapLever===4&&!chkComplete('ldg'))return{t:'<b>Landing checklist.</b> Tap each line.',sel:'#chkList'};
     if(p.ra<60&&p.ra>0&&p.vs<0&&p.gearLever==='DOWN'&&rwy(p).along<2)return{t:p.ap?'Autoland: at “RETARD”, <b>pull the thrust levers to IDLE</b> (key 2).':'<b>Flare:</b> at 30 ft ease the stick back, at “RETARD” pull the thrust to IDLE (key 2).',sel:'[data-act="thr:0"]'};
     if(R.flags.ils)return{t:p.ap?'The autopilot flies the ILS (LOC + G/S). Keep an eye on speed and configuration.':'Fly the ILS: keep the magenta diamonds centred (LS on), follow the FD bars.'};
@@ -1184,14 +1270,26 @@ function coachStep(){
   if(p.landed){if(p.ias>70&&p.lever>=0)return{t:'<b>Reverse thrust:</b> thrust levers to REV (key 1).',sel:'[data-act="thr:-20"]'};if(p.ias<=70&&p.lever<0)return{t:'70 knots. <b>Thrust levers to IDLE</b> (key 2).',sel:'[data-act="thr:0"]'};return{t:'Slow to taxi speed. Brakes: hold B.'};}
   return{t:''};
 }
+function visEl(sel){return $$(sel).find(e=>e.offsetParent!==null||e.getClientRects().length)||null;}
+function mapSel(sel){
+  if(!simpleUI())return sel;
+  if(/cmd:gear|#gearBtn|"gear"/.test(sel))return'#sGear';
+  if(/cmd:f\d|flap:/.test(sel))return'#sFlaps';
+  if(/thr:/.test(sel))return'#sThr';
+  if(/co:/.test(sel))return'#sCall';
+  const m={'#kHdg':'#sHdg','#kAlt':'#sAlt','#pbAP1':'#sAP','#pbAPPR':DIFF==='easy'?'#sAPPR':'#sAP','#ptt':'#sTalk','#stick':'#sStick','#chkList':'#sChk'};
+  return m[sel]||sel;
+}
+function tourList(){const extra=simpleUI()?[['#simple','Your controls',DIFF==='super'?'Just five buttons: takeoff thrust, flaps, gear, autopilot and talk. Steer with the arrow keys. Once the autopilot is on it follows ATC and lands the plane; you handle flaps and gear when asked.':'Everything you need in one panel: thrust, flaps, gear, autopilot with heading and altitude, and talk. The radio tunes itself and speeds are set for you.']]:[];
+  return [...PILOT_TOUR.filter(t=>visEl(t[0])),...extra];}
 function renderCoach(){
   if(MODE!=='pilot')return;
   const box=$('#coach');box.hidden=GM==='play';
   $$('.coach').forEach(e=>e.classList.remove('coach'));
   if(GM==='play')return;
-  if(LEARN.tour){const tt=PILOT_TOUR[LEARN.ti];$('#coachK').textContent='LESSON';
-    $('#coachText').innerHTML=`<b>${tt[1]}</b> <span class="lbl">${LEARN.ti+1} / ${PILOT_TOUR.length}</span><div>${tt[2]}</div><div class="row" style="margin-top:8px"><button class="btn" data-act="tour">Next</button><button class="btn" data-act="tourend">Skip the tour</button></div>`;
-    $('#coachSayWrap').hidden=true;const el=$(tt[0]);if(el)el.classList.add('coach');return;}
+  if(LEARN.tour){const TL=tourList();const tt=TL[Math.min(LEARN.ti,TL.length-1)];$('#coachK').textContent='LESSON';
+    $('#coachText').innerHTML=`<b>${tt[1]}</b> <span class="lbl">${LEARN.ti+1} / ${TL.length}</span><div>${tt[2]}</div><div class="row" style="margin-top:8px"><button class="btn" data-act="tour">Next</button><button class="btn" data-act="tourend">Skip the tour</button></div>`;
+    $('#coachSayWrap').hidden=true;const el=visEl(tt[0]);if(el)el.classList.add('coach');return;}
   $('#coachK').textContent=GM==='learn'?'LESSON':'COACH';
   const s=coachStep();
   let html=s.t||'';
@@ -1200,7 +1298,7 @@ function renderCoach(){
     else if(LEARN.slow<1)html+='<div class="hold">🐢 Slow motion</div>';}
   $('#coachText').innerHTML=html;
   $('#coachSayWrap').hidden=!s.say;if(s.say)$('#coachSay').textContent=s.say;
-  if(s.sel){const el=$(s.sel);if(el)el.classList.add('coach');}
+  if(s.sel){const el=visEl(mapSel(s.sel));if(el)el.classList.add('coach');}
 }
 
 /* =====================================================================
@@ -1402,6 +1500,7 @@ function syncDom(){
   $('#rAct').textContent=fmtF(p.com1.act);$('#rSby').textContent=fmtF(p.com1.sby);
   $('#sbRange').value=String(p.sb);
   $('#pfdNote').textContent=p.ap?'AP1 ON':'MANUAL · NORMAL LAW';
+  syncSimple();
   const tab=phaseTab();if(tab!==CK.auto){CK.auto=tab;CK.tab=tab;renderChk();}
 }
 function renderCrew(){
@@ -1428,15 +1527,17 @@ function initPilotSim(scn){
   CK={tab:'bto',done:{}};
   $('#log').innerHTML='';
   if(scn==='app'){for(const id of['bto','ato'])CHK[id].items.filter(Boolean).forEach(i=>CK.done[id+'|'+i[0]]=1);R.flags={base:1,desc:1,depCalled:1,arr:1,ready:1,dep:1};R.cleared=true;}
+  if(DIFF!=='hard'){P.splrArm=true;P.toConfigOk=true;}
+  if(simpleUI())for(const id of Object.keys(CHK))CHK[id].items.filter(Boolean).forEach(i=>CK.done[id+'|'+i[0]]=1);
   if(NET.on&&!humanCPT()&&!humanFO())for(const id of Object.keys(CHK))CHK[id].items.filter(Boolean).forEach(i=>CK.done[id+'|'+i[0]]=1);
   sysMsg(scn==='to'?`Lined up on runway 22 at Geneva. COM1 is still on Ground (121.680). ATIS: wind 230/5, QNH ${QNH}, runway 22 in use.`:`On base leg east of Geneva at 5000 ft, heading 130, talking to Geneva Arrival (136.255).`);
   if(scn==='app'&&!humanATC())out('radio','ARR',`${CALL}, turn right heading 130`,'atc');
   if(scn==='app'&&humanATC())R.calledIn=false;
 }
 function showPilotUI(role){
-  ROLE=role;MODE='pilot';show('pilot');
+  ROLE=role;MODE='pilot';show('pilot');$('#pilot').dataset.diff=DIFF;buildSimple();
   $('#pTitle').textContent=`SWR47K · A320 · ${role==='CPT'?'Captain (PF)':'First Officer (PM)'}${NET.on?' · multiplayer '+NET.code:''}`;
-  $('#pMode').textContent=modeLabel();$('#pMode').classList.toggle('play',GM==='play');
+  $('#pMode').textContent=modeLabel()+' · '+DIFF_NAME[DIFF];$('#pMode').classList.toggle('play',GM==='play');
   $('#metar').textContent=metar();$('#intBtn').hidden=!NET.on;
   buildKb();renderCrew();renderChk();
   $('#micLine').textContent=NET.on?'Hold TALK (T) for the radio, INTERCOM (Y) to talk to the other pilot.':(!MIC.ok?'Voice input is not available here. Type your transmission and press Send.':GM==='play'?'Hold TALK (or T) and speak. Use standard phraseology — nobody will tell you what to say.':'Hold the button (or the T key) and speak.');
@@ -1444,7 +1545,7 @@ function showPilotUI(role){
   if(P)renderCoach();actx();
 }
 function startPilot(role){
-  ROLE=role;GM=readGM();FO_RADIO=$('#foRadio').checked;
+  ROLE=role;GM=readGM();DIFF=readDiff();FO_RADIO=$('#foRadio').checked;
   initPilotSim($('#scnApp').checked?'app':'to');showPilotUI(role);
 }
 function humanTick(p,f){
@@ -1558,8 +1659,9 @@ function atcTick(dt,frozen){
   if(frozen)return;
   A.t+=dt;if(NET.on&&P)syncHuman();
   if(NET.on){A.nextArr=A.nextDep=1e12;}
-  if(A.t>=A.nextArr){if(A.list.filter(a=>a.kind==='arr').length<5)spawnArr();A.nextArr=A.t+rand(GM!=='play'?140:95,GM!=='play'?200:150);}
-  if(A.t>=A.nextDep){if(A.list.filter(a=>a.kind==='dep'&&a.st==='wait').length<3)spawnDep();A.nextDep=A.t+rand(GM!=='play'?150:90,GM!=='play'?220:150);}
+  const maxArr={super:1,easy:2,medium:4,hard:6}[DIFF]||4,maxDep={super:1,easy:1,medium:3,hard:3}[DIFF]||3,spdF={super:1.8,easy:1.4,medium:1,hard:0.75}[DIFF]||1;
+  if(A.t>=A.nextArr){if(A.list.filter(a=>a.kind==='arr').length<maxArr)spawnArr();A.nextArr=A.t+spdF*rand(GM!=='play'?140:95,GM!=='play'?200:150);}
+  if(A.t>=A.nextDep){if(A.list.filter(a=>a.kind==='dep'&&a.st==='wait').length<maxDep)spawnDep();A.nextDep=A.t+spdF*rand(GM!=='play'?150:90,GM!=='play'?220:150);}
   for(const a of A.list){moveAc(a,dt);a.trailT+=dt;if(a.trailT>4&&a.st==='air'){a.trailT=0;a.trail.push({x:a.x,y:a.y});if(a.trail.length>6)a.trail.shift();}}
   const air=A.list.filter(a=>a.st==='air'&&!a.gone);const now=new Set();
   for(let i=0;i<air.length;i++)for(let j=i+1;j<air.length;j++){const a=air[i],b=air[j],d=Math.hypot(a.x-b.x,a.y-b.y),lim=a.loc&&b.loc?2.5:3;
@@ -1718,7 +1820,7 @@ function initAtcSim(){
 }
 function showAtcUI(){
   MODE='atc';ROLE='ATC';show('atc');
-  $('#aMode').textContent=modeLabel();$('#aMode').classList.toggle('play',GM==='play');
+  $('#aMode').textContent=modeLabel()+(NET.on?'':' · '+DIFF_NAME[DIFF]);$('#aMode').classList.toggle('play',GM==='play');
   $('#tsBox').hidden=NET.on;$('#aPause').hidden=NET.on&&!NET.host;
   $('#aAlt').innerHTML=[4000,5000,6000,7000,8000,9000,10000,11000,12000,13000].map(v=>`<option value="${v}">${v<=TA?v+' ft':'FL'+v/100}</option>`).join('');
   $('#aSpd').innerHTML=[160,170,180,190,200,210,220,230,250].map(v=>`<option value="${v}">${v} kt</option>`).join('');
@@ -1726,7 +1828,7 @@ function showAtcUI(){
   ALEARN.tour=GM==='learn'&&!NET.on;ALEARN.ti=0;ALEARN.hold=false;ALEARN.skip=null;
   renderAtcCoach();actx();
 }
-function startAtc(){ROLE='ATC';GM=readGM();initAtcSim();showAtcUI();}
+function startAtc(){ROLE='ATC';GM=readGM();DIFF=readDiff();initAtcSim();showAtcUI();}
 function endAtc(){
   MODE='debrief';
   $('#dKicker').textContent=`Air Traffic Control · ${modeLabel()} · ${Math.round(A.t/60)} min shift`;
@@ -1851,7 +1953,7 @@ function renderLobby(){
   if(MODE!=='lobby')return;
   $('#lbCode').textContent=NET.code;
   $('#lbSeats').innerHTML=SEATS.map(([r,n,d])=>{const who=NET.roster.find(x=>x.role===r),mine=who&&who.id===NET.me.id;
-    return`<div class="seat"><span class="lbl">${esc(d)}</span><h3>${esc(n)}</h3><p>${who?esc(who.name)+(mine?' (you)':'')+micOf(who):'<i>Empty: the computer</i>'}</p><button class="btn" data-act="seat:${mine?'':r}" ${who&&!mine?'disabled':''}>${mine?'Leave seat':'Take seat'}</button></div>`;}).join('');
+    return`<div class="seat"><span class="lbl">${esc(d)}</span><h3>${esc(n)}</h3><p>${who?esc(who.name)+(mine?' (you)':'')+micOf(who)+(who&&!mine?vOf(who.id):''):'<i>Empty: the computer</i>'}</p><button class="btn" data-act="seat:${mine?'':r}" ${who&&!mine?'disabled':''}>${mine?'Leave seat':'Take seat'}</button></div>`;}).join('');
   const un=NET.roster.filter(r=>!r.role);
   $('#lbOthers').textContent=`${NET.roster.length} connected. `+(un.length?'No seat yet: '+un.map(r=>r.name+(r.id===NET.me.id?' (you)':'')).join(', '):'Everyone has a seat.')+(NET.stream?' · Microphone ready.':' · Microphone not allowed: others won’t hear you, but you can type.');
   $('#lbHostOpts').hidden=!NET.host;$('#lbStart').hidden=!NET.host;
@@ -1860,11 +1962,11 @@ function renderLobby(){
 function lbStart(){
   if(!NET.host)return;
   if(NET.roster.some(r=>!r.role)){$('#lbMsg').textContent='Everyone needs a seat before starting.';return;}
-  const m={t:'start',gm:$('#lbPlay').checked?'play':'tut',scn:$('#lbApp').checked?'app':'to',roster:NET.roster,humans:NET.humans};
+  const m={t:'start',gm:$('#lbPlay').checked?'play':'tut',scn:$('#lbApp').checked?'app':'to',diff:$('#lbSuper').checked?'super':$('#lbEasy').checked?'easy':$('#lbHard').checked?'hard':'medium',roster:NET.roster,humans:NET.humans};
   netSend(m);startNetLocal(m);
 }
 function startNetLocal(m){
-  GM=m.gm;SCN=m.scn;NET.roster=m.roster;NET.humans=m.humans;FO_RADIO=false;NET.started=true;
+  GM=m.gm;SCN=m.scn;DIFF=m.diff||'medium';NET.roster=m.roster;NET.humans=m.humans;FO_RADIO=false;NET.started=true;
   const me=NET.roster.find(r=>r.id===NET.me.id);NET.me.role=me?me.role:'';
   if(NET.host){NET.simAtc=NET.humans.ATC;if(NET.simAtc)initAtcSim();initPilotSim(SCN);}
   else{P=null;A.list=[];$('#log').innerHTML='';$('#aLog').innerHTML='';}
@@ -1925,16 +2027,30 @@ function callPeersNow(){
 }
 function answerCall(c){NET.calls[c.peer]=c;Promise.resolve(NET.audioReady).then(()=>{c.answer(NET.stream||silentStream());wireCall(c);});}
 function wireCall(c){
-  NET.calls[c.peer]=c;
-  c.on('stream',st=>{let a=NET.audios[c.peer];if(!a){a=document.createElement('audio');a.autoplay=true;a.hidden=true;document.body.appendChild(a);NET.audios[c.peer]=a;}a.srcObject=st;a.muted=true;a.play().catch(()=>{});});
-  c.on('close',()=>{delete NET.calls[c.peer];});c.on('error',()=>{delete NET.calls[c.peer];});
+  NET.calls[c.peer]=c;NET.vstate=NET.vstate||{};NET.vstate[c.peer]='connecting';renderLobby();
+  c.on('stream',st=>{
+    let a=NET.audios[c.peer];
+    if(!a){a=document.createElement('audio');a.autoplay=true;a.setAttribute('playsinline','');a.style.cssText='position:absolute;width:1px;height:1px;opacity:0;pointer-events:none';document.body.appendChild(a);NET.audios[c.peer]=a;}
+    a.srcObject=st;a.muted=false;a.volume=0;a.play().catch(()=>{});
+    NET.vstate[c.peer]='connected';watchLevel(c.peer,st);renderLobby();
+  });
+  try{const pc=c.peerConnection;if(pc)pc.addEventListener('iceconnectionstatechange',()=>{const st=pc.iceConnectionState;if(st==='failed'||st==='disconnected'){NET.vstate[c.peer]='failed';renderLobby();}else if(st==='connected'||st==='completed'){if(NET.vstate[c.peer]!=='connected'){NET.vstate[c.peer]='connected';renderLobby();}}});}catch(e){}
+  c.on('close',()=>{delete NET.calls[c.peer];});c.on('error',()=>{delete NET.calls[c.peer];NET.vstate[c.peer]='failed';renderLobby();});
 }
+function watchLevel(id,st){
+  try{const ctx=actx();if(!ctx||!st.getAudioTracks().length)return;const src=ctx.createMediaStreamSource(st),an=ctx.createAnalyser();an.fftSize=512;src.connect(an);
+    const buf=new Uint8Array(an.fftSize);NET.levels=NET.levels||{};
+    NET.levels[id]=()=>{an.getByteTimeDomainData(buf);let m=0;for(const v of buf)m=Math.max(m,Math.abs(v-128));return m/128;};}catch(e){}
+}
+function wakeAudio(){try{const c=actx();if(c&&c.state==='suspended')c.resume();}catch(e){}for(const a of Object.values(NET.audios||{}))if(a.paused)a.play().catch(()=>{});}
+document.addEventListener('pointerdown',wakeAudio,true);document.addEventListener('keydown',wakeAudio,true);
 function pttNet(on,ch){
   if(!NET.on)return;
   if(NET.stream)NET.stream.getAudioTracks().forEach(t=>t.enabled=on);
   const m={t:'ptt',id:NET.me.id,role:NET.me.role,name:NET.me.name,on,ch,freq:P?P.com1.act:0};
   if(NET.host)netSend(m);else toHost(m);
 }
+function vOf(id){const v=(NET.vstate||{})[id];return v==='connected'?' · voice ✓':v==='failed'?' · voice ✗':v?' · voice …':'';}
 function micOf(r){return r.mic===undefined?'':r.mic?' 🎙':' (no mic)';}
 function audible(m){
   const me=NET.me.role,myPilot=me==='CPT'||me==='FO',fromPilot=m.role==='CPT'||m.role==='FO';
@@ -1945,10 +2061,12 @@ function audible(m){
 function onPtt(m){
   if(m.id===NET.me.id)return;
   const a=NET.audios[m.id],hear=m.on&&audible(m);
-  if(a){a.muted=!hear;if(hear)a.play().catch(()=>{});}
+  if(a){a.volume=hear?1:0;if(hear&&a.paused)a.play().catch(()=>{});}
+  NET.talking=hear?m:null;
+  if(hear&&!a){const line=MODE==='atc'?$('#aMicLine'):$('#micLine');if(line)line.textContent=`📻 ${m.name} is talking, but no voice link to them yet. Ask everyone to reload the page and rejoin.`;return;}
   const line=MODE==='atc'?$('#aMicLine'):$('#micLine');
   if(hear){tone(m.ch==='int'?900:1500,0.05,'square',0.03);if(line&&!PTT.on)line.textContent=`${m.ch==='int'?'🎧':'📻'} ${m.name} (${m.role}) is talking…`;}
-  else if(!m.on&&line&&!PTT.on&&/is talking/.test(line.textContent)){tone(1100,0.05,'square',0.03);line.textContent='';}
+  else if(!m.on&&line&&!PTT.on&&/is talking/.test(line.textContent)){tone(1100,0.05,'square',0.03);line.textContent='';NET.talking=null;}
 }
 
 /* =====================================================================
@@ -1963,7 +2081,7 @@ function act(a,el){
     case'mphost':return netHost();case'mpjoin':return netJoin();
     case'seat':if(NET.host)setSeat(NET.me.id,v);else toHost({t:'seat',role:v});return;
     case'lbstart':return lbStart();
-    case'tour':LEARN.ti++;if(LEARN.ti>=PILOT_TOUR.length)LEARN.tour=false;return renderCoach();
+    case'tour':LEARN.ti++;if(LEARN.ti>=tourList().length)LEARN.tour=false;return renderCoach();
     case'tourend':LEARN.tour=false;return renderCoach();
     case'skipstep':LEARN.skip=coachLast;LEARN.hold=false;return renderCoach();
     case'atour':ALEARN.ti++;if(ALEARN.ti>=ATC_TOUR.length)ALEARN.tour=false;return renderAtcCoach();
@@ -1986,9 +2104,13 @@ function act(a,el){
     case'sb':p.sb=clamp(+v,0,1);break;
     case'brk':p.brakeManual=v==='1';break;
     case'apoff':apOff(false);break;
+    case'flapstep':setFlaps(clamp(p.flapLever+ +v,0,4));break;
+    case'super':if(p.onGround&&!p.landed&&p.lever<34)p.lever=35;break;
+    case'chkall':{const tab=phaseTab();CK.tab=tab;CHK[tab].items.forEach((it,i)=>{if(it&&!CK.done[tab+'|'+it[0]])chkClick(i);});break;}
+    case'cosmart':{const o=CO.find(c=>Crew.co[c.id]==='open');if(o)userCallout(o.id);else out('cockpit','sys','No callout is due right now.','sys');break;}
     case'spd':if(v==='pull'){p.athr=true;sysMsg(`Selected speed ${p.fcu.spd}.`);}else p.fcu.spd=clamp(p.fcu.spd+ +v,100,350);break;
-    case'hdg':if(v==='pull'){if(!p.onGround)p.lat='HDG';p.locArmed=false;}else p.fcu.hdg=wrap360(p.fcu.hdg+ +v)||360;break;
-    case'alt':if(v==='pull'){if(!p.onGround)pullAlt(p);}else p.fcu.alt=clamp(p.fcu.alt+ +v,100,39000);break;
+    case'hdg':if(v==='pull'){if(!p.onGround)p.lat='HDG';p.locArmed=false;}else{p.fcu.hdg=wrap360(p.fcu.hdg+ +v)||360;if(DIFF!=='hard'&&!p.onGround&&!['LOC','LOC*','LAND','ROLL OUT'].includes(p.lat)){p.lat='HDG';}}break;
+    case'alt':if(v==='pull'){if(!p.onGround)pullAlt(p);}else{p.fcu.alt=clamp(p.fcu.alt+ +v,100,39000);if(DIFF!=='hard'&&!p.onGround&&!['G/S','G/S*','LAND','FLARE','ROLL OUT','SRS'].includes(p.vert))pullAlt(p);}break;
     case'vs':if(v==='pull'){if(!p.onGround){p.vert='V/S';if(!p.fcu.vs)p.fcu.vs=Math.round(p.vs/100)*100;}}else p.fcu.vs=clamp(p.fcu.vs+ +v,-6000,6000);break;
     case'loc':if(!p.onGround){p.locArmed=!p.locArmed;p.gsArmed=false;}break;
     case'appr':if(!p.onGround){const on=!(p.locArmed&&p.gsArmed);p.locArmed=on&&!['LOC','LOC*','LAND'].includes(p.lat);p.gsArmed=on&&!['G/S','G/S*','LAND','FLARE'].includes(p.vert);if(on)p.ls=true;}break;
@@ -2052,12 +2174,13 @@ bindPtt($('#ptt'),'pilot');bindPtt($('#aPtt'),'atc');bindPtt($('#intBtn'),'int')
   const thr=$('#thr');for(const[v,l]of [[45,'TOGA'],[35,'FLX/MCT'],[25,'CL'],[0,'IDLE'],[-20,'REV']]){const b=document.createElement('button');b.className='det';b.dataset.act='thr:'+v;b.textContent=l;b.style.top=`calc(6px + ${(45-v)/65} * (100% - 12px))`;thr.appendChild(b);}
 })();
 // sidestick pad
-(function(){const pad=$('#stick'),knob=$('#stickKnob');
+function bindStick(pad,knob){
   const set=e=>{const r=pad.getBoundingClientRect(),dx=clamp((e.clientX-r.left-r.width/2)/(r.width/2-17),-1,1),dy=clamp((e.clientY-r.top-r.height/2)/(r.height/2-17),-1,1);Stick.touch={p:dy,r:dx};knob.style.transform=`translate(${dx*(r.width/2-17)}px,${dy*(r.height/2-17)}px)`;};
   pad.addEventListener('pointerdown',e=>{pad.setPointerCapture(e.pointerId);set(e);});
   pad.addEventListener('pointermove',e=>{if(Stick.touch)set(e);});
   const up=()=>{Stick.touch=null;knob.style.transform='';};pad.addEventListener('pointerup',up);pad.addEventListener('pointercancel',up);
-})();
+}
+bindStick($('#stick'),$('#stickKnob'));
 const brk=$('#brkBtn');brk.addEventListener('pointerdown',()=>{if(P)act('brk:1');});brk.addEventListener('pointerup',()=>{if(P)act('brk:0');});brk.addEventListener('pointerleave',()=>{if(P&&P.brakeManual)act('brk:0');});
 const KEYMAP={ArrowUp:1,ArrowDown:1,ArrowLeft:1,ArrowRight:1,w:1,a:1,s:1,d:1};
 window.addEventListener('keydown',e=>{
@@ -2112,6 +2235,8 @@ function frame(now){
     updStick(dt);
     if(now-skT>50){skT=now;if(Math.abs(Stick.p-NET.lp)>0.01||Math.abs(Stick.r-NET.lr)>0.01){NET.lp=Stick.p;NET.lr=Stick.r;toHost({t:'stick',p:Stick.p,r:Stick.r});}}
   }
+  if(NET.on&&NET.talking&&!PTT.on){const t=NET.talking,lv=NET.levels&&NET.levels[t.id]?NET.levels[t.id]():-1,line=MODE==='atc'?$('#aMicLine'):$('#micLine');
+    if(line&&(MODE==='atc'||MODE==='pilot')){const bars=lv<0?'':' '+'▮'.repeat(Math.min(8,Math.round(lv*30)))+'▯'.repeat(Math.max(0,8-Math.min(8,Math.round(lv*30))));line.textContent=`${t.ch==='int'?'🎧':'📻'} ${t.name} (${t.role}) is talking${bars}${lv>=0&&lv<0.01?'  (no sound arriving: check their microphone)':''}`;}}
   if(MODE==='pilot'&&P){
     drawPFD();drawND();drawEWD();
     uiT+=dt;if(uiT>0.12){uiT=0;syncDom();const s=coachStep(),key=JSON.stringify(s);learnUpdate(s,key);if(key!==coachLast||LEARN.dirty){coachLast=key;LEARN.dirty=false;renderCoach();}}
