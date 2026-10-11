@@ -1,0 +1,2113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Geneva Flight Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: an A320 flight deck in the browser — glareshield FCU across the top, three glass displays (PFD · ND · E/WD), pedestal panels below; ATC is a radar scope with flight strips */
+:root{
+  --deck:#11161b; --panel:#34404b; --panel-lo:#27313a; --edge:#4f5c68; --ink:#e7ecf0; --ink-dim:#97a4b0;
+  --glass:#000; --green:#3ef07a; --cyan:#3fdcff; --amber:#ffa424; --magenta:#ff52f2; --red:#ff4040; --yellow:#ffe04a;
+  --ui:"B612",ui-sans-serif,system-ui,sans-serif; --mono:"B612 Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--deck);color:var(--ink)}
+body{margin:0;font:14px/1.45 var(--ui)}
+button,input,select{font:inherit;color:inherit}
+.wrap{padding-inline:16px;padding-block:14px;max-width:1520px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;margin:0}
+.lbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.btn{background:var(--panel-lo);border:1px solid var(--edge);border-radius:4px;padding:7px 11px;cursor:pointer;font-size:12px;letter-spacing:.05em;color:var(--ink)}
+.btn:hover{border-color:var(--ink-dim)}
+.btn:focus-visible,.pb:focus-visible,.role:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sel{border-color:var(--cyan);color:var(--cyan)}
+/* Airbus-style pushbutton with light bar */
+.pb{position:relative;background:#1d252c;border:1px solid #5e6b77;border-radius:3px;min-width:54px;padding:6px 8px 12px;cursor:pointer;font-size:11px;letter-spacing:.06em;color:#dfe5ea}
+.pb::after{content:"";position:absolute;left:12px;right:12px;bottom:4px;height:3px;border-radius:2px;background:#33403a}
+.pb.on::after{background:var(--green);box-shadow:0 0 6px var(--green)}
+.pb.arm::after{background:var(--cyan)}
+.coach{outline:2px solid var(--amber)!important;outline-offset:3px;animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{outline-color:transparent}}
+@media (prefers-reduced-motion:reduce){.coach{animation:none}}
+[hidden]{display:none!important}
+
+/* ---------- menu */
+#menu .hero{display:grid;gap:10px;padding-block:28px 18px}
+#menu h1{font-family:var(--ui);font-weight:700;font-size:clamp(30px,5vw,52px);letter-spacing:-.01em}
+#menu .sub{color:var(--ink-dim);max-width:62ch}
+.chart{display:flex;flex-wrap:wrap;gap:1px;background:var(--edge);border:1px solid var(--edge);border-radius:4px;overflow:hidden;margin-block:6px 22px}
+.chart div{background:var(--panel-lo);padding:8px 12px;flex:1 1 120px;min-width:0}
+.chart b{display:block;font-family:var(--mono);font-size:15px;color:var(--green);font-weight:400}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.role{text-align:left;background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:18px;cursor:pointer;display:grid;gap:8px;align-content:start}
+.role:hover{border-color:var(--cyan)}
+.role h2{font-size:21px}
+.role .seat{font-family:var(--mono);font-size:12px;color:var(--cyan)}
+.role ul{margin:0;padding-left:18px;color:#cbd4db;font-size:13px}
+.opts{display:flex;flex-wrap:wrap;gap:22px;margin-block:22px;padding:14px 16px;background:var(--panel-lo);border:1px solid var(--edge);border-radius:6px}
+.opts fieldset{border:0;margin:0;padding:0;display:grid;gap:6px;min-width:0}
+.opts legend{padding:0;margin-bottom:4px}
+.opts label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:13px}
+.fine{color:var(--ink-dim);font-size:12px;max-width:80ch;margin-top:18px}
+
+/* ---------- pilot */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding-block:6px 10px}
+.top .id{font-weight:700;font-size:16px}
+.top .metar{font-family:var(--mono);font-size:12px;color:var(--green);min-width:0;overflow-wrap:anywhere}
+.top .sp{flex:1}
+.modeTag{font-family:var(--mono);font-size:11px;padding:3px 7px;border-radius:3px;border:1px solid var(--amber);color:var(--amber)}
+.modeTag.play{border-color:var(--green);color:var(--green)}
+#coach{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:start;background:#2a2410;border:1px solid #6b5a22;border-radius:6px;padding:10px 14px;margin-bottom:10px}
+#coach .k{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.1em;padding-top:2px}
+#coach .t{min-width:0}
+#coach .t b{color:#ffe2a6}
+#coachSay{font-family:var(--mono);color:var(--cyan)}
+.glare{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:10px}
+.fcuw{display:grid;gap:5px;background:var(--panel-lo);border-radius:4px;padding:6px 8px;min-width:0}
+.fcuw .win{display:flex;align-items:baseline;gap:8px}
+.fcuw output{font-family:var(--mono);font-size:20px;color:#ffb347;background:#0b0d0f;padding:1px 8px;border-radius:2px;min-width:72px;text-align:right}
+.knobs{display:flex;gap:3px;flex-wrap:wrap}
+.knobs .btn{padding:4px 7px;font-family:var(--mono);font-size:11px}
+.pbs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.mlt{display:grid;gap:6px}
+.mlt button{min-width:84px;font-weight:700;font-size:11px;letter-spacing:.06em;padding:8px;border-radius:3px;border:1px solid #5e2b2b;background:#2a1414;color:#6b3a3a;cursor:pointer}
+.mlt button.caut{border-color:#5e4b22;background:#2a2212;color:#6b5a32}
+.mlt button.lit{background:var(--red);color:#fff;border-color:#ff8080}
+.mlt button.caut.lit{background:var(--amber);color:#1a1000;border-color:#ffd08a}
+.displays{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin-block:10px}
+.du{background:#0b0e11;border:1px solid #2c343c;border-radius:8px;padding:8px;min-width:0}
+.du canvas{display:block;width:100%;aspect-ratio:1;max-width:100%;background:#000;border-radius:3px}
+.du .cap{display:flex;justify-content:space-between;gap:8px;margin-top:5px}
+.ped{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.pnl{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:12px;display:grid;gap:10px;align-content:start;min-width:0}
+.pnl h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);font-weight:400}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.levers{display:grid;grid-template-columns:auto auto 1fr;gap:14px;align-items:start}
+.thr{position:relative;width:96px;height:210px}
+.thr .track{position:absolute;left:8px;top:6px;bottom:6px;width:16px;background:#1a2026;border-radius:8px;border:1px solid #4b5763;touch-action:none;cursor:ns-resize}
+.thr .handle{position:absolute;left:-10px;width:36px;height:16px;margin-top:-8px;background:#cfd6dc;border-radius:3px;box-shadow:0 2px 0 #7d8891;pointer-events:none}
+.thr .det{position:absolute;left:32px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);transform:translateY(-50%);cursor:pointer;background:none;border:0;padding:0}
+.thr .det:hover{color:var(--cyan)}
+.flaps{display:grid;gap:4px}
+.flaps .btn{padding:5px 10px;font-family:var(--mono)}
+.gear{display:grid;gap:6px;justify-items:start}
+.gearInd{display:flex;gap:6px;font-family:var(--mono);font-size:11px}
+.gearInd span{width:30px;text-align:center;padding:2px 0;border-radius:2px;background:#0b0d0f;color:#334}
+.gearInd .dn{color:var(--green)} .gearInd .un{color:var(--red)}
+.stick{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,#252e36 0,#1a2026 70%);border:1px solid #4b5763;position:relative;touch-action:none;cursor:grab}
+.stick i{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:#6c7884;box-shadow:inset 0 -3px 0 #47525d;pointer-events:none}
+.rmp{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.rmp .f{background:#0b0d0f;border-radius:3px;padding:6px 8px;text-align:center;min-width:0}
+.rmp .f b{display:block;font-family:var(--mono);font-size:22px;font-weight:400;color:#ffb347}
+.kb{display:grid;gap:3px;font-size:12px}
+.kb button{display:flex;justify-content:space-between;gap:10px;text-align:left;background:#e9e3d2;color:#1d1b16;border:0;border-radius:2px;padding:4px 8px;cursor:pointer}
+.kb button:hover{background:#fff6dd}
+.kb button span:last-child{font-family:var(--mono)}
+#log{height:230px;overflow-y:auto;background:#0b0d0f;border-radius:4px;padding:8px;font-family:var(--mono);font-size:12px;display:grid;gap:4px;align-content:start}
+#log div{overflow-wrap:anywhere}
+#log .w{display:inline-block;min-width:44px;margin-right:6px;font-weight:700}
+.w-atc{color:var(--cyan)} .w-you{color:#fff} .w-fo,.w-cpt{color:var(--amber)} .w-sys{color:var(--ink-dim)} .w-bad{color:var(--red)} .w-good{color:var(--green)}
+.tx{display:grid;gap:8px}
+.ptt{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+#ptt,#aPtt{flex:0 0 auto;min-width:130px;font-weight:700;background:#1f2a22;border:1px solid #3c6b49;color:#bff5cf;border-radius:4px;padding:10px 12px;cursor:pointer;touch-action:none;user-select:none}
+#ptt.live,#aPtt.live{background:var(--red);border-color:#ff9a9a;color:#fff}
+.txin{flex:1 1 200px;display:flex;gap:6px;min-width:0}
+.txin input{flex:1;min-width:0;background:#0b0d0f;border:1px solid var(--edge);border-radius:4px;padding:8px;font-family:var(--mono);font-size:12px}
+.micline{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);min-height:1.4em;overflow-wrap:anywhere}
+.crew{display:flex;flex-wrap:wrap;gap:6px}
+.crew .btn.open{border-color:var(--amber);color:var(--amber)}
+.crew .btn.done{border-color:#2f6b45;color:var(--green)}
+.chkTabs{display:flex;flex-wrap:wrap;gap:4px}
+.chkTabs .btn{padding:4px 8px;font-size:11px}
+.chkTabs .btn.ok{color:var(--green);border-color:#2f6b45}
+.chk{display:grid;gap:2px;background:#f2efe6;color:#1b1b1b;border-radius:3px;padding:8px;font-family:var(--mono);font-size:12px}
+.chk h4{margin:0 0 4px;font-size:12px;text-align:center;letter-spacing:.08em}
+.chk button{display:flex;gap:6px;justify-content:space-between;background:none;border:0;padding:3px 4px;text-align:left;cursor:pointer;color:#1b1b1b;border-radius:2px}
+.chk button:hover{background:#e3ddcc}
+.chk button .d{flex:1;border-bottom:1px dotted #8b8677;transform:translateY(-4px);min-width:10px}
+.chk button.c{color:#1f7a3a}
+.chk button.c::before{content:"✓ "}
+.chk button.x{color:#b14a00}
+.chk .line{text-align:center;color:#6b665a;font-size:10.5px;padding:2px}
+.ov{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:16px;z-index:10}
+.ov .card{background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:20px;max-width:640px;width:100%;max-height:90vh;overflow:auto;display:grid;gap:12px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+.keys kbd{font-family:var(--mono);background:#0b0d0f;border:1px solid var(--edge);border-radius:3px;padding:1px 6px;font-size:12px;white-space:nowrap}
+
+/* ---------- multiplayer + learn */
+.mp{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;margin-top:22px;padding:18px;background:var(--panel);border:1px solid var(--edge);border-radius:6px}
+@media (max-width:760px){.mp{grid-template-columns:1fr}}
+.mp h2{font-size:21px;margin-block:4px 6px}
+.mpForm{display:grid;gap:8px;align-content:start}
+.mpForm input{background:#0b0d0f;border:1px solid var(--edge);border-radius:4px;padding:8px;font-family:var(--mono);min-width:0}
+#mpCode{width:96px;text-transform:uppercase;letter-spacing:.2em}
+.seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.seat{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:14px;display:grid;gap:6px;align-content:start}
+.seat h3{font-size:18px}
+.seat p{margin:0;font-family:var(--mono);color:var(--green)}
+.seat p i{color:var(--ink-dim);font-style:normal}
+.why{margin-top:6px;color:#e8d9b0;font-size:13px}
+.hold{margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--amber);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#intBtn{flex:0 0 auto;min-width:120px;font-weight:700;background:#1d2633;border:1px solid #3d5c80;color:#cfe3ff;border-radius:4px;padding:10px 12px;cursor:pointer;touch-action:none;user-select:none}
+#intBtn.live{background:#2f6fd0;color:#fff}
+.strip.human>span:first-child{background:#3ef07a}
+
+/* ---------- debrief */
+.deb{display:grid;gap:14px;max-width:760px;margin:30px auto}
+.deb h2{font-size:32px}
+.deb .big{font-family:var(--mono);font-size:44px;color:var(--green)}
+.deb ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-family:var(--mono);font-size:13px}
+.deb li{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #2a333b;padding:4px 0}
+.deb li .p{color:var(--green)} .deb li .n{color:var(--red)}
+
+/* ---------- ATC */
+.atcGrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:12px}
+@media (max-width:900px){.atcGrid{grid-template-columns:1fr}}
+.scope{background:#050c0b;border:1px solid #23413b;border-radius:8px;padding:6px;min-width:0}
+#radar{display:block;width:100%;aspect-ratio:1;max-height:82vh;cursor:crosshair}
+.side{display:grid;gap:10px;align-content:start;min-width:0}
+.strips{display:grid;gap:5px;max-height:300px;overflow-y:auto}
+.strip{display:grid;grid-template-columns:8px 1fr auto;gap:0 10px;background:#ece6d3;color:#1c1b17;border-radius:2px;cursor:pointer;font-family:var(--mono);font-size:12px;border:2px solid transparent;text-align:left;padding:0}
+.strip>span:first-child{border-radius:2px 0 0 2px}
+.strip.arr>span:first-child{background:#d9a441} .strip.dep>span:first-child{background:#5f8fc9}
+.strip .m{padding:5px 0;min-width:0}
+.strip .m b{font-size:14px}
+.strip .r{padding:5px 8px;text-align:right}
+.strip.sel{border-color:var(--cyan)}
+.strip.cf{background:#ffd2cc}
+.cmd{display:grid;gap:8px}
+.cmd .row input,.cmd .row select{background:#0b0d0f;border:1px solid var(--edge);border-radius:4px;padding:6px;font-family:var(--mono);width:84px}
+#aLog{height:200px;overflow-y:auto;background:#0b0d0f;border-radius:4px;padding:8px;font-family:var(--mono);font-size:12px;display:grid;gap:4px;align-content:start}
+#aLog div{overflow-wrap:anywhere}
+.stats{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:12px}
+.stats b{color:var(--green);font-weight:400}
+</style>
+</head><body>
+
+
+<div class="wrap">
+
+<!-- ================= MENU ================= -->
+<section id="menu">
+  <div class="hero">
+    <div class="lbl">LSGG / GVA · Genève Aéroport · Airbus A320</div>
+    <h1>Geneva Flight Deck</h1>
+    <p class="sub">Fly the A320 out of Geneva from either seat, or work the radar as Geneva Arrival and Tower. Talk on the radio with your voice: push to talk, say your call, and ATC or the crew answers in standard ICAO phraseology.</p>
+  </div>
+  <div class="chart">
+    <div><span class="lbl">Runway</span><b>04 / 22</b></div>
+    <div><span class="lbl">Length</span><b>3900 × 50 m</b></div>
+    <div><span class="lbl">Elevation</span><b>1411 ft</b></div>
+    <div><span class="lbl">Tower</span><b>118.700</b></div>
+    <div><span class="lbl">Departure</span><b>119.530</b></div>
+    <div><span class="lbl">Arrival</span><b>136.255</b></div>
+    <div><span class="lbl">Ground</span><b>121.680</b></div>
+    <div><span class="lbl">Trans. alt</span><b>7000 ft</b></div>
+  </div>
+
+  <div class="opts">
+    <fieldset>
+      <legend class="lbl">Mode</legend>
+      <label><input type="radio" name="gm" id="gmLearn" value="learn" checked> <span><b>Tutorial · Learn</b> — a guided lesson. The sim pauses at every step, explains why, and waits until you do it.</span></label>
+      <label><input type="radio" name="gm" id="gmTut" value="tut"> <span><b>Tutorial · Practice</b> — the real thing in real time, with a coach telling you what to say and what to press.</span></label>
+      <label><input type="radio" name="gm" id="gmPlay" value="play"> <span><b>Play</b> — the real thing. No hints, no suggested phrases. ATC only understands proper phraseology.</span></label>
+    </fieldset>
+    <fieldset>
+      <legend class="lbl">Flight (pilot seats)</legend>
+      <label><input type="radio" name="scn" id="scnTo" value="to" checked> <span>Full flight: takeoff 22, radar vectors, ILS 22 (about 15 min)</span></label>
+      <label><input type="radio" name="scn" id="scnApp" value="app"> <span>Approach only: base leg, ILS 22 to touchdown (about 5 min)</span></label>
+      <label><input type="checkbox" id="foRadio"> <span>As Captain, let the First Officer work the radio</span></label>
+    </fieldset>
+  </div>
+
+  <div class="roles">
+    <button class="role" data-act="role-CPT">
+      <span class="seat">LEFT SEAT · PILOT FLYING</span>
+      <h2>Captain</h2>
+      <ul><li>Thrust levers, sidestick, autopilot and FCU</li><li>Call for flaps and gear; the FO moves them</li><li>Fly the ILS by hand or let the autopilot land</li></ul>
+    </button>
+    <button class="role" data-act="role-FO">
+      <span class="seat">RIGHT SEAT · PILOT MONITORING</span>
+      <h2>First Officer</h2>
+      <ul><li>Work the radio and read back clearances</li><li>Call “V1”, “Rotate”, “Positive climb”</li><li>Move flaps and gear on the Captain’s command, run the checklists</li></ul>
+    </button>
+    <button class="role" data-act="role-ATC">
+      <span class="seat">RADAR · 136.255 / 118.700</span>
+      <h2>Air Traffic Control</h2>
+      <ul><li>Vector arrivals onto the ILS for runway 22</li><li>Clear departures for takeoff and hand them off</li><li>Keep 3 NM or 1000 ft between everyone</li></ul>
+    </button>
+  </div>
+  <div class="mp" id="mp">
+    <div>
+      <span class="lbl">Play with friends</span>
+      <h2>Shared cockpit and radar</h2>
+      <p class="sub">One person hosts and gets a four-letter code. Friends open this same website, type the code and take a seat: Captain, First Officer or ATC. Talk with your real voices on push-to-talk: pilots hear ATC when tuned to a Geneva frequency, and the two pilots share an intercom. Empty seats are filled by the computer.</p>
+    </div>
+    <div class="mpForm">
+      <label class="lbl" for="mpName">Your name</label>
+      <input id="mpName" maxlength="16" placeholder="Your name" autocomplete="nickname">
+      <div class="row"><button class="btn" data-act="mphost">Host a game</button><span class="lbl">or</span><input id="mpCode" maxlength="4" placeholder="CODE" aria-label="Game code" autocomplete="off"><button class="btn" data-act="mpjoin">Join</button></div>
+      <div class="micline" id="mpMsg">Multiplayer needs the website version and an internet connection.</div>
+    </div>
+  </div>
+  <p class="fine">Voice input uses your browser’s speech recognition. It works when this page is opened as a file in Chrome or Edge with microphone access; where the microphone is blocked (including inside some previews), type your transmission instead. Airport data from published Geneva charts; procedures are simplified Airbus SOPs. Training simulation only, not for real-world navigation.</p>
+</section>
+
+<!-- ================= PILOT ================= -->
+<section id="pilot" hidden>
+  <div class="top">
+    <span class="id" id="pTitle">SWR47K · A320</span>
+    <span class="modeTag" id="pMode">TUTORIAL</span>
+    <span class="metar" id="metar"></span>
+    <span class="sp"></span>
+    <button class="btn" data-act="sound" id="bSound">Sound on</button>
+    <button class="btn" data-act="pause" id="bPause">Pause</button>
+    <button class="btn" data-act="keys">Keys</button>
+    <button class="btn" data-act="menu">Quit</button>
+  </div>
+
+  <div id="coach"><span class="k" id="coachK">COACH</span><div class="t"><div id="coachText">…</div><div id="coachSayWrap" hidden>Say: “<span id="coachSay"></span>” <button class="btn" data-act="sayit" style="margin-left:6px;padding:3px 8px">Send this</button></div></div></div>
+
+  <div class="glare">
+    <div class="fcuw"><span class="lbl">SPD</span><div class="win"><output id="fSpd">250</output></div>
+      <div class="knobs" id="kSpd"><button class="btn" data-act="spd:-10">−10</button><button class="btn" data-act="spd:-1">−1</button><button class="btn" data-act="spd:1">+1</button><button class="btn" data-act="spd:10">+10</button><button class="btn" data-act="spd:pull">PULL</button></div></div>
+    <div class="fcuw"><span class="lbl">HDG</span><div class="win"><output id="fHdg">223</output></div>
+      <div class="knobs" id="kHdg"><button class="btn" data-act="hdg:-10">−10</button><button class="btn" data-act="hdg:-1">−1</button><button class="btn" data-act="hdg:1">+1</button><button class="btn" data-act="hdg:10">+10</button><button class="btn" data-act="hdg:pull">PULL</button></div></div>
+    <div class="pbs">
+      <button class="pb" data-act="loc" id="pbLOC">LOC</button>
+      <button class="pb" data-act="ap1" id="pbAP1">AP1</button>
+      <button class="pb" data-act="athr" id="pbATHR">A/THR</button>
+      <button class="pb" data-act="appr" id="pbAPPR">APPR</button>
+    </div>
+    <div class="fcuw"><span class="lbl">ALT</span><div class="win"><output id="fAlt">5000</output></div>
+      <div class="knobs" id="kAlt"><button class="btn" data-act="alt:-1000">−1000</button><button class="btn" data-act="alt:-100">−100</button><button class="btn" data-act="alt:100">+100</button><button class="btn" data-act="alt:1000">+1000</button><button class="btn" data-act="alt:pull">PULL</button></div></div>
+    <div class="fcuw"><span class="lbl">V/S</span><div class="win"><output id="fVs">-----</output></div>
+      <div class="knobs" id="kVs"><button class="btn" data-act="vs:-100">−100</button><button class="btn" data-act="vs:100">+100</button><button class="btn" data-act="vs:pull">PULL</button></div></div>
+    <div class="pbs">
+      <button class="pb" data-act="ls" id="pbLS">LS</button>
+      <button class="pb" data-act="rng" id="pbRNG">RNG 20</button>
+    </div>
+    <div class="mlt"><button id="mWarn" data-act="mwarn">MASTER WARN</button><button id="mCaut" class="caut" data-act="mcaut">MASTER CAUT</button></div>
+  </div>
+
+  <div class="displays">
+    <div class="du"><canvas id="cPFD" width="400" height="400" aria-label="Primary flight display"></canvas><div class="cap"><span class="lbl">PFD</span><span class="lbl" id="pfdNote"></span></div></div>
+    <div class="du"><canvas id="cND" width="400" height="400" aria-label="Navigation display"></canvas><div class="cap"><span class="lbl">ND · ROSE NAV</span></div></div>
+    <div class="du"><canvas id="cEWD" width="400" height="400" aria-label="Engine and warning display"></canvas><div class="cap"><span class="lbl">E/WD</span></div></div>
+  </div>
+
+  <div class="ped">
+    <div class="pnl" id="pnlComms">
+      <h3>Radio · COM1</h3>
+      <div id="log" aria-live="polite"></div>
+      <div class="tx">
+        <div class="ptt">
+          <button id="ptt" aria-label="Push to talk">● HOLD TO TALK</button>
+          <button id="intBtn" hidden aria-label="Intercom">🎧 INTERCOM (Y)</button>
+          <form class="txin" id="txForm"><input id="txIn" autocomplete="off" placeholder="…or type your transmission" aria-label="Type your transmission"><button class="btn" type="submit">Send</button></form>
+        </div>
+        <div class="micline" id="micLine">Hold the button (or the T key) and speak.</div>
+      </div>
+    </div>
+
+    <div class="pnl" id="pnlRadio">
+      <h3>Radio management panel</h3>
+      <div class="rmp">
+        <div class="f"><span class="lbl">Active</span><b id="rAct">121.680</b></div>
+        <button class="btn" data-act="swap" id="rSwap" aria-label="Swap active and standby">⇄</button>
+        <div class="f"><span class="lbl">Standby</span><b id="rSby">118.700</b></div>
+      </div>
+      <div class="row"><span class="lbl">MHz</span><button class="btn" data-act="rk:m:-1">−</button><button class="btn" data-act="rk:m:1">+</button><span class="lbl">kHz</span><button class="btn" data-act="rk:k:-1">−</button><button class="btn" data-act="rk:k:1">+</button></div>
+      <div class="kb" id="kb"></div>
+    </div>
+
+    <div class="pnl" id="pnlLevers">
+      <h3>Pedestal</h3>
+      <div class="levers">
+        <div class="thr" id="thr"><div class="track" id="thrTrack"><div class="handle" id="thrHandle"></div></div></div>
+        <div class="flaps"><span class="lbl">Flaps</span>
+          <button class="btn" data-act="flap:0">0</button><button class="btn" data-act="flap:1">1</button><button class="btn" data-act="flap:2">2</button><button class="btn" data-act="flap:3">3</button><button class="btn" data-act="flap:4">FULL</button></div>
+        <div class="gear"><span class="lbl">Landing gear</span>
+          <button class="btn" data-act="gear" id="gearBtn">GEAR ▼ DOWN</button>
+          <div class="gearInd" id="gearInd"><span>▼</span><span>▼</span><span>▼</span></div>
+          <button class="pb" data-act="splr" id="pbSPLR">GND SPLR ARM</button>
+          <label class="lbl" for="sbRange">Speed brake</label><input id="sbRange" type="range" min="0" max="1" step="0.25" value="0">
+        </div>
+      </div>
+      <div class="row"><span class="lbl">Autobrake</span><button class="pb" data-act="ab:LO" id="abLO">LO</button><button class="pb" data-act="ab:MED" id="abMED">MED</button><button class="pb" data-act="ab:MAX" id="abMAX">MAX</button><button class="pb" data-act="tocfg" id="pbTOC">T.O CONFIG</button></div>
+      <div class="row"><div class="stick" id="stick" aria-label="Sidestick"><i id="stickKnob"></i></div><div><span class="lbl">Sidestick</span><p class="fine" style="margin:4px 0">Drag, or ↑↓←→ / W A S D. Pull back (↓) to pitch up.</p><button class="btn" id="brkBtn">HOLD BRAKES (B)</button></div></div>
+    </div>
+
+    <div class="pnl" id="pnlCrew">
+      <h3 id="crewTitle">Crew</h3>
+      <div class="crew" id="crew"></div>
+      <h3>Checklists</h3>
+      <div class="chkTabs" id="chkTabs"></div>
+      <div class="chk" id="chkList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ATC ================= -->
+<section id="atc" hidden>
+  <div class="top">
+    <span class="id">Geneva Arrival + Tower</span>
+    <span class="modeTag" id="aMode">TUTORIAL</span>
+    <span class="metar" id="aMetar"></span>
+    <span class="sp"></span>
+    <span id="tsBox"><button class="btn" data-act="ats:1" id="ts1">1×</button><button class="btn" data-act="ats:2" id="ts2">2×</button><button class="btn" data-act="ats:4" id="ts4">4×</button></span>
+    <button class="btn" data-act="apause" id="aPause">Pause</button>
+    <button class="btn" data-act="sound" id="bSound2">Sound on</button>
+    <button class="btn" data-act="aend">End shift</button>
+  </div>
+  <div id="aCoach" class="" style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px;background:#2a2410;border:1px solid #6b5a22;border-radius:6px;padding:10px 14px;margin-bottom:10px"><span class="lbl" style="color:var(--amber)" id="aCoachK">COACH</span><div><div id="aCoachText">…</div><div id="aCoachSayWrap" hidden>Say: “<span id="aCoachSay" class="mono" style="color:var(--cyan)"></span>” <button class="btn" data-act="asayit" style="margin-left:6px;padding:3px 8px">Send this</button></div></div></div>
+  <div class="atcGrid">
+    <div class="scope"><canvas id="radar" aria-label="Radar scope"></canvas>
+      <div class="row" style="padding:6px"><span class="lbl">Range</span><button class="btn" data-act="arng:20">20</button><button class="btn" data-act="arng:30">30</button><button class="btn" data-act="arng:45">45</button><span class="stats" id="aStats"></span></div>
+    </div>
+    <div class="side">
+      <div class="pnl">
+        <h3>Transmit</h3>
+        <div class="ptt"><button id="aPtt">● HOLD TO TALK</button><form class="txin" id="aTxForm"><input id="aTxIn" autocomplete="off" placeholder="e.g. Swiss 2LM, descend altitude 5000 feet, QNH 1018"><button class="btn" type="submit">Send</button></form></div>
+        <div class="micline" id="aMicLine">Hold the button (or T) and give an instruction, callsign first.</div>
+        <div class="cmd" id="aCmd">
+          <div class="lbl" id="aSelInfo">Select an aircraft on the scope or a strip.</div>
+          <div class="row"><input id="aHdg" inputmode="numeric" maxlength="3" aria-label="Heading" placeholder="HDG"><button class="btn" data-act="ac:L">Turn left</button><button class="btn" data-act="ac:R">Turn right</button><button class="btn" data-act="ac:H">Fly hdg</button></div>
+          <div class="row"><select id="aAlt" aria-label="Altitude"></select><button class="btn" data-act="ac:ALT">Climb / descend</button><select id="aSpd" aria-label="Speed"></select><button class="btn" data-act="ac:SPD">Speed</button></div>
+          <div class="row"><button class="btn" data-act="ac:ILS">Cleared ILS 22</button><button class="btn" data-act="ac:LAND">Cleared to land</button><button class="btn" data-act="ac:GA">Go around</button></div>
+          <div class="row"><button class="btn" data-act="ac:LUW">Line up &amp; wait</button><button class="btn" data-act="ac:TKOF">Cleared takeoff</button><button class="btn" data-act="ac:DEP">Contact Departure</button></div>
+        </div>
+      </div>
+      <div class="pnl"><h3>Flight strips</h3><div class="strips" id="strips"></div></div>
+      <div class="pnl"><h3>Frequency</h3><div id="aLog" aria-live="polite"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LOBBY ================= -->
+<section id="lobby" hidden>
+  <div class="deb">
+    <div class="lbl">Multiplayer lobby</div>
+    <h2>Game code <span class="mono" id="lbCode" style="color:var(--green)"></span></h2>
+    <p class="sub">Friends open this website, choose Join and type the code. Everyone takes a seat. Empty pilot seats are flown by the computer, and with no human controller the computer runs ATC.</p>
+    <div class="seats" id="lbSeats"></div>
+    <div class="micline" id="lbOthers"></div>
+    <div class="opts" id="lbHostOpts" style="margin:0">
+      <fieldset><legend class="lbl">Mode</legend>
+        <label><input type="radio" name="lbgm" id="lbTut" checked> <span><b>Practice</b> — coach hints for everyone</span></label>
+        <label><input type="radio" name="lbgm" id="lbPlay"> <span><b>Play</b> — no hints</span></label></fieldset>
+      <fieldset><legend class="lbl">Flight</legend>
+        <label><input type="radio" name="lbscn" id="lbTo" checked> <span>Full flight from runway 22</span></label>
+        <label><input type="radio" name="lbscn" id="lbApp"> <span>Approach only</span></label></fieldset>
+    </div>
+    <div class="micline" id="lbMsg"></div>
+    <div class="row"><button class="btn" data-act="lbstart" id="lbStart">Start flight</button><button class="btn" data-act="menu">Leave</button></div>
+  </div>
+</section>
+
+<!-- ================= DEBRIEF ================= -->
+<section id="debrief" hidden>
+  <div class="deb">
+    <div class="lbl" id="dKicker">Debrief</div>
+    <h2 id="dTitle">Flight complete</h2>
+    <p id="dSum" class="sub"></p>
+    <div><span class="lbl">Score</span><div class="big" id="dScore">0</div></div>
+    <ul id="dList"></ul>
+    <div class="row"><button class="btn" data-act="again">Go again</button><button class="btn" data-act="menu">Main menu</button></div>
+  </div>
+</section>
+</div>
+
+<div class="ov" id="keysOv" hidden><div class="card">
+  <h2>Controls</h2>
+  <div class="keys">
+    <kbd>T (hold)</kbd><span>Push to talk on COM1</span>
+    <kbd>↓ / S</kbd><span>Sidestick back (nose up)</span>
+    <kbd>↑ / W</kbd><span>Sidestick forward (nose down)</span>
+    <kbd>← → / A D</kbd><span>Roll left / right</span>
+    <kbd>PgUp / =</kbd><span>Thrust levers forward</span>
+    <kbd>PgDn / −</kbd><span>Thrust levers back</span>
+    <kbd>1 2 3 4 5</kbd><span>Thrust detents: REV, IDLE, CL, FLX/MCT, TOGA</span>
+    <kbd>F / V</kbd><span>Flaps one step down / up</span>
+    <kbd>G</kbd><span>Gear lever</span>
+    <kbd>B (hold)</kbd><span>Wheel brakes</span>
+    <kbd>Space</kbd><span>Autopilot disconnect (sidestick button)</span>
+    <kbd>P</kbd><span>Pause</span>
+  </div>
+  <p class="fine">Normal law: with the stick released the aircraft holds its flight path and bank up to 33°. Bank is limited to 67°, pitch to +30°/−15°, and angle of attack is protected.</p>
+  <button class="btn" data-act="keysclose">Close</button>
+</div></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   Utilities
+   ===================================================================== */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const D2R=Math.PI/180,R2D=180/Math.PI,G=9.81,KT=0.514444,FT=0.3048;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
+const wrap360=h=>((h%360)+360)%360;
+const angDiff=(a,b)=>{let d=wrap360(b-a);return d>180?d-360:d;};
+const hdgStr=n=>{let v=Math.round(wrap360(n));if(v===0)v=360;return String(v).padStart(3,'0');};
+const rand=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)];
+const fmtF=k=>(k/1000).toFixed(3);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const C={g:'#3ef07a',c:'#3fdcff',a:'#ffa424',m:'#ff52f2',r:'#ff4040',y:'#ffe04a',w:'#f2f4f5',gray:'#56616c',sky:'#2a86d4',earth:'#87552a',dim:'#8a96a2'};
+const MONO='"B612 Mono",ui-monospace,Menlo,monospace';
+
+/* =====================================================================
+   Geneva data (positions in NM east/north of the aerodrome reference point)
+   ===================================================================== */
+const ARP={lat:46.2381,lon:6.1090}, COSL=Math.cos(ARP.lat*D2R);
+const ll=(lat,lon)=>({x:(lon-ARP.lon)*60*COSL,y:(lat-ARP.lat)*60});
+const THR22=ll(46.2504,6.1270), THR04=ll(46.2258,6.0909);
+const RWY_LEN=Math.hypot(THR22.x-THR04.x,THR22.y-THR04.y);
+const CRS22=wrap360(Math.atan2(THR04.x-THR22.x,THR04.y-THR22.y)*R2D);   // true, ≈225.4
+const VAR=2.7, CRS22M=Math.round(CRS22-VAR);                              // magnetic ≈223
+const UX=Math.sin((CRS22+180)*D2R), UY=Math.cos((CRS22+180)*D2R);        // unit vector pointing out along the approach (NE)
+const ELEV=1411, QNH=1018, TA=7000;
+const WIND={dir:230,spd:5};
+const NAV=[{id:'SPR',...ll(46.4687,6.4481)},{id:'PAS',...ll(46.1637,5.9999)}];
+const F_={GND:121680,TWR:118700,DEP:119530,ARR:136255,FIN:120305,ATIS:135580};
+const UNITS={121680:'Geneva Ground',118700:'Geneva Tower',119530:'Geneva Departure',136255:'Geneva Arrival',120305:'Geneva Final',135580:'Geneva ATIS'};
+const USHORT={121680:'GND',118700:'TWR',119530:'DEP',136255:'ARR',120305:'FIN',135580:'ATIS'};
+const LAKE=[[46.207,6.152],[46.235,6.160],[46.283,6.170],[46.330,6.205],[46.383,6.240],[46.436,6.293],[46.462,6.340],[46.484,6.420],[46.507,6.497],[46.507,6.560],[46.506,6.630],[46.493,6.700],[46.477,6.780],[46.460,6.843],[46.432,6.910],[46.396,6.930],[46.383,6.890],[46.388,6.830],[46.396,6.760],[46.402,6.650],[46.401,6.590],[46.375,6.480],[46.365,6.420],[46.372,6.330],[46.330,6.300],[46.300,6.240],[46.262,6.200],[46.225,6.165]].map(([a,b])=>ll(a,b));
+function rwy(pt){const dx=pt.x-THR22.x,dy=pt.y-THR22.y;const along=dx*UX+dy*UY,perp=dx*UY-dy*UX;return{along,perp,xtk:-perp};}
+const gpAlt=along=>ELEV+50+along*6076.12*Math.tan(3*D2R);
+const zulu=()=>{const d=new Date();return String(d.getUTCDate()).padStart(2,'0')+String(d.getUTCHours()).padStart(2,'0')+String(d.getUTCMinutes()).padStart(2,'0')+'Z';};
+const metar=()=>`LSGG ${zulu()} 23005KT 9999 FEW045 14/06 Q${QNH} NOSIG  (simulated)`;
+
+/* =====================================================================
+   Audio + speech output
+   ===================================================================== */
+const AU={ctx:null,on:true};
+function actx(){if(!AU.ctx){try{AU.ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AU.ctx;}
+function tone(f,dur,type='sine',vol=0.12,when=0){const c=actx();if(!c||!AU.on)return;try{const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=f;const t=c.currentTime+when;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g).connect(c.destination);o.start(t);o.stop(t+dur+0.05);}catch(e){}}
+const chime=()=>tone(1320,0.7,'sine',0.1);
+const crc=()=>{tone(880,0.22,'triangle',0.1);tone(880,0.22,'triangle',0.1,0.28);};
+const cavalry=()=>[523,659,784,1047,784,1047].forEach((f,i)=>tone(f,0.16,'square',0.05,i*0.11));
+const DIG=['zero','one','two','three','four','five','six','seven','eight','niner'];
+const NATO={a:'alpha',b:'bravo',c:'charlie',d:'delta',e:'echo',f:'foxtrot',g:'golf',h:'hotel',i:'india',j:'juliett',k:'kilo',l:'lima',m:'mike',n:'november',o:'oscar',p:'papa',q:'quebec',r:'romeo',s:'sierra',t:'tango',u:'uniform',v:'victor',w:'whiskey',x:'x-ray',y:'yankee',z:'zulu'};
+const digits=s=>[...s].map(c=>/\d/.test(c)?DIG[c]:c).join(' ');
+function spoken(t){
+  return t
+   .replace(/\b(\d{3})\.(\d{3})\b/g,(m,a,b)=>digits(a)+' decimal '+digits(/00$/.test(b)?b[0]:b))
+   .replace(/\bFL\s?(\d{2,3})\b/g,(m,a)=>'flight level '+digits(a))
+   .replace(/\b(\d{1,2})000\b/g,(m,a)=>digits(a)+' thousand')
+   .replace(/\b(\d)(\d)00\b/g,(m,a,b)=>DIG[a]+' thousand '+DIG[b]+' hundred')
+   .replace(/\b(\d{1,4})([A-Z]{1,2})\b/g,(m,a,b)=>digits(a)+' '+[...b].map(c=>NATO[c.toLowerCase()]).join(' '))
+   .replace(/\b\d+\b/g,m=>digits(m))
+   .replace(/\bILS\b/g,'I L S').replace(/\bQNH\b/g,'Q N H');
+}
+let VOICES=[];
+function loadVoices(){try{VOICES=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));}catch(e){}}
+try{speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}catch(e){}
+function speak(text,kind='ATC'){
+  if(!AU.on||!('speechSynthesis' in window))return;
+  try{
+    const u=new SpeechSynthesisUtterance(spoken(text));
+    if(!VOICES.length)loadVoices();
+    const idx={ATC:0,FO:1,CPT:2,FWC:3,PIL:1,P2:2,P3:3}[kind]||0;
+    if(VOICES.length)u.voice=VOICES[idx%VOICES.length];
+    u.rate=kind==='FWC'?1.2:1.12; u.pitch=kind==='FWC'?0.4:kind==='CPT'?0.75:kind==='P2'?1.25:kind==='P3'?0.9:1;
+    if(kind==='FWC')speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* =====================================================================
+   Speech input (push to talk) + phrase normalisation
+   ===================================================================== */
+const SRC=window.SpeechRecognition||window.webkitSpeechRecognition;
+const MIC={ok:!!SRC,rec:null,results:null,holding:false,capStart:0,carry:'',cb:null,line:null,btn:null};
+function micText(){const r=MIC.results;let t='';if(r)for(let i=MIC.capStart;i<r.length;i++)t+=r[i][0].transcript+' ';return(MIC.carry+' '+t).replace(/\s+/g,' ').trim();}
+function micSession(){
+  if(MIC.rec)return true;
+  try{
+    const r=new SRC();r.lang='en-US';r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
+    r.onresult=e=>{MIC.results=e.results;if(MIC.holding&&MIC.line)MIC.line.textContent='🎙 '+micText();};
+    r.onerror=e=>{const L=MIC.line;if(!L)return;
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){MIC.ok=false;L.textContent='Microphone blocked. Click the camera/mic icon in the address bar, choose Allow, then reload. You can also type below.';}
+      else if(e.error==='network'){MIC.ok=false;L.textContent='Voice needs an internet connection and Chrome or Edge. Type your call instead.';}};
+    r.onend=()=>{if(MIC.holding){MIC.carry=micText();MIC.results=null;MIC.capStart=0;MIC.rec=null;micSession();}else{MIC.rec=null;MIC.results=null;}};
+    r.start();MIC.rec=r;MIC.results=null;MIC.capStart=0;return true;
+  }catch(e){MIC.rec=null;return false;}
+}
+function micStart(cb,lineEl,btnEl){
+  MIC.line=lineEl;MIC.btn=btnEl;
+  if(!MIC.ok){lineEl.textContent='No voice here: this page runs inside Claude, which blocks the microphone. Open the downloaded file in Chrome or Edge to talk. For now, type and press Send.';return;}
+  if(MIC.holding)return;
+  try{speechSynthesis.cancel();}catch(e){}
+  if(!micSession()){lineEl.textContent='Could not start the microphone. Type instead.';return;}
+  MIC.cb=cb;MIC.holding=true;MIC.carry='';MIC.capStart=MIC.results?MIC.results.length:0;
+  btnEl.classList.add('live');lineEl.textContent='🎙 Listening… release to send';tone(2000,0.05,'sine',0.05);
+}
+function micStop(){
+  if(!MIC.holding)return;
+  MIC.holding=false;if(MIC.btn)MIC.btn.classList.remove('live');
+  const cb=MIC.cb,line=MIC.line;MIC.cb=null;
+  setTimeout(()=>{const txt=micText();MIC.carry='';MIC.capStart=MIC.results?MIC.results.length:0;
+    if(txt&&cb){line.textContent='Sent: '+txt;cb(txt);}else if(line)line.textContent='Nothing heard. Hold the button while you speak, then release.';},900);
+}
+const NUMW={zero:0,oh:0,one:1,won:1,two:2,three:3,tree:3,four:4,fower:4,five:5,fife:5,six:6,seven:7,eight:8,nine:9,niner:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+const TENS={twenty:20,thirty:30,forty:40,fourty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+const NATOW={alpha:'a',alfa:'a',bravo:'b',charlie:'c',delta:'d',echo:'e',foxtrot:'f',golf:'g',hotel:'h',india:'i',juliet:'j',juliett:'j',kilo:'k',kay:'k',lima:'l',mike:'m',november:'n',oscar:'o',papa:'p',quebec:'q',romeo:'r',sierra:'s',tango:'t',uniform:'u',victor:'v',whiskey:'w',whisky:'w',xray:'x',yankee:'y',zulu:'z'};
+function normalize(text){
+  let s=' '+String(text).toLowerCase()+' ';
+  s=s.replace(/(\d),(\d{3})/g,'$1$2').replace(/x-ray/g,'xray').replace(/take[\s-]?off/g,'takeoff').replace(/i\.l\.s\.?|\bi l s\b/g,'ils').replace(/q\.n\.h\.?|\bq n h\b/g,'qnh').replace(/flight-level|\bfl(?=\s?\d)/g,'flight level ').replace(/[^a-z0-9.\s]/g,' ').replace(/(\D)\.|\.(\D)/g,'$1 $2').replace(/(\D)\.|\.(\D)/g,'$1 $2');
+  const tk=s.split(/\s+/).filter(Boolean), out=[];
+  for(let i=0;i<tk.length;){
+    const isNum=t=>t in NUMW||t in TENS||/^\d+(\.\d+)?$/.test(t);
+    if(!isNum(tk[i])){out.push(NATOW[tk[i]]||tk[i]);i++;continue;}
+    let total=0,cur='',sum=false,tensOpen=false,dec=null;
+    while(i<tk.length){
+      const t=tk[i];
+      if(/^\d+(\.\d+)?$/.test(t)){ if((cur!==''||total)&&!sum&&t.length>1&&dec===null)break; if(dec!==null)dec+=t; else if(sum&&cur!=='')cur=String(Number(cur)+Number(t)); else cur+=t; tensOpen=false; i++; }
+      else if(t in NUMW&&NUMW[t]<10){const d=NUMW[t]; if(dec!==null)dec+=d; else if(tensOpen){cur=String(Number(cur)+d);tensOpen=false;} else if(sum&&cur==='')cur=String(d); else if(sum)cur=String(Number(cur)+d); else cur+=d; i++;}
+      else if(t in NUMW){cur=String((sum&&cur?Number(cur):0)+NUMW[t]);i++;}
+      else if(t in TENS){ if(dec!==null){dec+=TENS[t];} else {cur=String((sum&&cur?Number(cur):0)+TENS[t]);tensOpen=true;} i++;}
+      else if(t==='hundred'&&cur!==''&&dec===null){cur=String(Number(cur)*100);sum=true;tensOpen=false;i++;}
+      else if(t==='thousand'&&dec===null){total+=Number(cur||1)*1000;cur='';sum=true;tensOpen=false;i++;}
+      else if((t==='decimal'||t==='point'||t==='dot')&&cur!==''&&dec===null){dec='';i++;}
+      else break;
+    }
+    let v=total?String(total+Number(cur||0)):cur;
+    if(dec!==null)v=v+'.'+dec;
+    out.push(v);
+  }
+  return ' '+out.join(' ')+' ';
+}
+
+/* =====================================================================
+   App state + navigation
+   ===================================================================== */
+let MODE='menu', ROLE='CPT', SCN='to', GM='tut', FO_RADIO=false;
+function show(id){for(const s of ['menu','pilot','atc','debrief','lobby'])$('#'+s).hidden=s!==id;window.scrollTo(0,0);}
+function humanCPT(){return NET.on?NET.humans.CPT:ROLE==='CPT';}
+function humanFO(){return NET.on?NET.humans.FO:ROLE==='FO';}
+function humanATC(){return NET.on&&NET.humans.ATC;}
+function userRadio(){return humanFO()||(humanCPT()&&!FO_RADIO);}
+function readGM(){return $('#gmLearn').checked?'learn':$('#gmPlay').checked?'play':'tut';}
+function modeLabel(){return GM==='learn'?'LEARN':GM==='play'?'PLAY':'PRACTICE';}
+
+/* =====================================================================
+   PILOT: aircraft model (A320, ~62 t)
+   ===================================================================== */
+const CONF={'0':{vs:145,vfe:350,cd:0,a0:2},'1':{vs:125,vfe:230,cd:0.08,a0:3},'1+F':{vs:120,vfe:215,cd:0.15,a0:4},'2':{vs:113,vfe:200,cd:0.32,a0:5},'3':{vs:110,vfe:185,cd:0.5,a0:5.5},'FULL':{vs:105,vfe:177,cd:1.2,a0:6}};
+const SPD={V1:141,VR:145,V2:150,F:141,S:178,GD:209,VAPP:134,FLX:54};
+const VMO=350,VLE=280,VLO=250,THR_RED=1500,ACC=1500;
+const CALL='Swiss 47K';
+let P=null, simT=0, paused=false, TIMERS=[];
+let radT=0;
+const later=(s,fn)=>TIMERS.push({t:radT+s,fn});
+function confKey(p){return['0',p.conf1F?'1+F':'1','2','3','FULL'][p.flapLever];}
+function vmax(p){const c=CONF[confKey(p)];let v=Math.min(VMO,c.vfe);if(p.gearPos>0.05)v=Math.min(v,VLE);return v;}
+function vls(p){const c=CONF[confKey(p)];return Math.round(c.vs*(p.vert==='SRS'||p.onGround?1.13:1.23));}
+
+function newPilot(scn){
+  const p={x:THR22.x-UX*0.02,y:THR22.y-UY*0.02,alt:ELEV,ias:0,hdg:CRS22,trk:CRS22,gs:0,pitch:0,bank:0,gamma:0,nz:1,gdot:0,vs:0,ra:0,iasRate:0,
+    onGround:true,n1:19.5,lever:0,flapLever:1,conf1F:true,flapPos:1,gearLever:'DOWN',gearPos:1,sb:0,splrArm:false,gsDeployed:false,
+    autobrake:'MAX',abActive:false,brakeManual:false,ap:false,athr:false,athrActive:false,athrI:22,athrN1:null,athrMode:'',fdOn:true,ls:false,
+    vert:'',lat:'',locArmed:false,gsArmed:false,toArmed:false,trkHold:CRS22,altCapVs:1500,
+    fcu:{spd:250,hdg:CRS22M,alt:5000,vs:0},com1:{act:F_.GND,sby:F_.TWR},ndRange:20,
+    tailstrike:false,crashed:false,done:false,landed:false,toConfigOk:false,fob:6400,fd:{p:0,r:0},
+    warn:[],warnSeen:{},mw:false,mc:false,ovs:false,fwcPrev:ELEV};
+  if(scn==='app'){
+    const al=16,pp=-4;p.x=THR22.x+UX*al+UY*pp;p.y=THR22.y+UY*al-UX*pp;
+    Object.assign(p,{alt:5000,ias:220,hdg:130+VAR,trk:130+VAR,onGround:false,flapLever:0,conf1F:false,flapPos:0,gearLever:'UP',gearPos:0,
+      ap:true,athr:true,athrActive:true,lever:25,n1:58,athrI:58,vert:'ALT',lat:'HDG',toArmed:true,autobrake:'MED',pitch:5.4,
+      fcu:{spd:220,hdg:130,alt:5000,vs:0},com1:{act:F_.ARR,sby:F_.TWR},fob:5100,fwcPrev:5000});
+  }
+  return p;
+}
+function idleN1(p){return p.onGround?19.5:22;}
+function leverN1(p,L){const idle=idleN1(p);if(L<0)return p.onGround?20+(-L/20)*52:idle;if(L<=25)return lerp(idle,85,L/25);if(L<=35)return lerp(85,87,(L-25)/10);return lerp(87,92,(L-35)/10);}
+function forces(p){
+  const c=CONF[confKey(p)],V=Math.max(p.ias,1)*KT;
+  const f=Math.pow(clamp((p.n1-19)/73,0,1),1.6);
+  let T=2.7*f*(1-0.0012*p.ias);
+  if(p.lever<0&&p.onGround)T=-1.7*clamp((p.n1-20)/52,0,1);
+  const k=3.63e-5*(1+c.cd+p.gearPos*0.35+p.sb*0.6+(p.gsDeployed?2.2:0));
+  let D=k*V*V; if(!p.onGround)D+=0.35*p.nz*p.nz*Math.pow(103/Math.max(V,40),2);
+  return{T,D,c,V};
+}
+const liftN=(p,alpha,c)=>((alpha+c.a0)/(15+c.a0))*Math.pow(p.ias/c.vs,2);
+const reqAlpha=(p,n,c)=>n*(15+c.a0)/Math.pow(Math.max(p.ias,40)/c.vs,2)-c.a0;
+function selSpd(p){let v=p.fcu.spd;v=Math.min(v,vmax(p)-5);v=Math.max(v,vls(p));return v;}
+function speedOnPitch(p,F,spdT){const ge=Math.asin(clamp((F.T-F.D)/G,-0.25,0.3))*R2D;return ge+(p.ias-spdT)*0.35;}
+function pullAlt(p){const e=p.fcu.alt-p.alt;p.vert=Math.abs(e)<60?'ALT':e>0?'OP CLB':'OP DES';}
+
+/* ---------- autoflight: mode logic + guidance (drives AP and the flight director) */
+function autoflight(p,dt){
+  const ra=p.alt-ELEV,F=forces(p),r=rwy(p),V=Math.max(p.ias,60)*KT,gDeg=p.gamma*R2D;
+  if(p.onGround){
+    if(!p.toArmed&&p.lever>=34.5&&!p.landed){p.toArmed=true;p.vert='SRS';p.lat='RWY';p.athr=true;p.trkHold=p.hdg;}
+  }else{
+    if(p.lat==='RWY'&&ra>30){p.lat='RWY TRK';p.trkHold=p.trk;}
+    if(p.vert==='SRS'&&ra>ACC)pullAlt(p);
+  }
+  const wasActive=p.athrActive;
+  p.athrActive=p.athr&&!p.onGround&&p.lever>0&&p.lever<=25.5;
+  if(p.athrActive&&!wasActive)p.athrI=p.n1;
+  const altErr=p.fcu.alt-p.alt;
+  if(['OP CLB','OP DES','V/S'].includes(p.vert)&&altErr*p.vs>0&&Math.abs(altErr)<Math.max(Math.abs(p.vs)/5,80)){p.vert='ALT*';p.altCapVs=Math.max(Math.abs(p.vs),300);}
+  if(p.vert==='ALT*'&&Math.abs(altErr)<30)p.vert='ALT';
+  if(p.locArmed&&!p.onGround){
+    const ad=Math.abs(angDiff(p.trk,CRS22)),rt=(V*V)/(G*Math.tan(25*D2R))/1852,lead=rt*(1-Math.cos(Math.min(ad,90)*D2R))+0.15;
+    if(r.along>-0.5&&r.along<25&&ad<110&&Math.abs(r.xtk)<lead){p.lat='LOC*';p.locArmed=false;}
+  }
+  if(p.lat==='LOC*'&&Math.abs(r.xtk)<0.1&&Math.abs(angDiff(p.trk,CRS22))<6)p.lat='LOC';
+  if(p.gsArmed&&(p.lat==='LOC'||p.lat==='LOC*')&&r.along>0.3&&r.along<22&&p.alt>=gpAlt(r.along)-60){p.vert='G/S*';p.gsArmed=false;}
+  if(p.vert==='G/S*'&&Math.abs(p.alt-gpAlt(r.along))<35)p.vert='G/S';
+  if(p.vert==='G/S'&&p.lat==='LOC'&&ra<400&&!p.onGround){p.vert='LAND';p.lat='LAND';}
+  if(p.vert==='LAND'&&ra<55&&!p.onGround)p.vert='FLARE';
+  if((p.vert==='FLARE'||p.vert==='LAND')&&p.onGround){p.vert='ROLL OUT';p.lat='ROLL OUT';}
+
+  let bankT=0,gammaCmd=gDeg,vsCmd=null;
+  const te=t=>angDiff(p.trk,t);
+  switch(p.lat){
+    case'RWY':case'RWY TRK':bankT=clamp(te(p.trkHold)*1.2,-25,25);break;
+    case'HDG':bankT=clamp(angDiff(p.hdg,p.fcu.hdg+VAR)*1.2,-25,25);break;
+    case'LOC*':case'LOC':case'LAND':{const want=CRS22+clamp(-r.xtk*45,-35,35);bankT=clamp(te(want)*1.3,-25,25);break;}
+    default:bankT=0;
+  }
+  if(p.lat==='LAND'&&ra<60)bankT=clamp(bankT,-5,5);
+  switch(p.vert){
+    case'SRS':gammaCmd=clamp(speedOnPitch(p,F,SPD.V2+10),0.5,12);break;
+    case'OP CLB':gammaCmd=clamp(speedOnPitch(p,F,selSpd(p)),0.3,14);break;
+    case'OP DES':gammaCmd=clamp(speedOnPitch(p,F,selSpd(p)),-9,-0.3);break;
+    case'V/S':vsCmd=p.fcu.vs;break;
+    case'ALT*':vsCmd=clamp(altErr*2.5,-p.altCapVs,p.altCapVs);break;
+    case'ALT':vsCmd=clamp(altErr*2,-800,800);break;
+    case'G/S*':case'G/S':case'LAND':vsCmd=-p.gs*5.31+clamp((gpAlt(r.along)-p.alt)*3,-500,500);break;
+    case'FLARE':vsCmd=-(Math.max(ra,0)*2.4+80);break;
+  }
+  if(vsCmd!==null)gammaCmd=Math.asin(clamp(vsCmd*FT/60/V,-0.3,0.3))*R2D;
+  const nCmd=Math.cos(p.gamma)/Math.cos(clamp(p.bank,-33,33)*D2R)+clamp((gammaCmd-gDeg)*0.09-p.gdot*R2D*0.3,-0.35,0.35);
+  const rollRate=clamp((bankT-p.bank)*0.9,-5,5);
+  p.fd.p=clamp(gammaCmd-gDeg,-8,8);p.fd.r=clamp(bankT-p.bank,-25,25);
+  p.athrN1=null;p.athrMode='';
+  if(p.athrActive){
+    const lim=leverN1(p,p.lever);
+    if(p.vert==='SRS'||p.vert==='OP CLB'){p.athrN1=lim;p.athrMode='THR CLB';}
+    else if(p.vert==='OP DES'){p.athrN1=idleN1(p);p.athrMode='THR IDLE';}
+    else if(p.vert==='FLARE'||(p.vert==='LAND'&&ra<30)){p.athrN1=idleN1(p);p.athrMode='IDLE';}
+    else{const err=selSpd(p)-p.ias;p.athrI=clamp(p.athrI+err*0.35*dt,22,lim);p.athrN1=clamp(p.athrI+err*2.2-p.iasRate*5,idleN1(p),lim);p.athrMode='SPEED';}
+  }
+  return{nCmd,rollRate};
+}
+
+/* ---------- sidestick */
+const Stick={p:0,r:0,touch:null,keys:{}};
+function updStick(dt){
+  const k=Stick.keys;let tp=(k.ArrowDown||k.s?1:0)-(k.ArrowUp||k.w?1:0),tr=(k.ArrowRight||k.d?1:0)-(k.ArrowLeft||k.a?1:0);
+  if(Stick.touch){tp=Stick.touch.p;tr=Stick.touch.r;Stick.p=tp;Stick.r=tr;return;}
+  Stick.p+=clamp(tp-Stick.p,-4*dt,4*dt);Stick.r+=clamp(tr-Stick.r,-4*dt,4*dt);
+}
+
+function stickIn(){return(NET.on&&NET.host&&NET.me.role!=='CPT')?(Stick.remote||{p:0,r:0}):Stick;}
+function controls(p,dt){
+  const g=autoflight(p,dt);
+  const auto=p.ap||Crew.hands,S=stickIn();
+  if(p.onGround){
+    const r=rwy(p);let sp=auto?Crew.gPitch:S.p,pr=0,steer;
+    if(sp>0.05&&p.ias>60)pr=sp*3.2;else if(p.pitch>0)pr=(p.landed?-1.6:(p.ias<120?-2:0));
+    if(auto||p.vert==='ROLL OUT'){const want=CRS22+clamp(-r.xtk*700,-8,8);steer=clamp(angDiff(p.hdg,want)*0.8,-3,3);}
+    else steer=S.r*(p.ias<30?8:2);
+    return{pr,steer};
+  }
+  if(auto){
+    if(p.ap&&!Crew.hands&&(Math.abs(S.p)>0.6||Math.abs(S.r)>0.6)){apOff(true);}
+    else return{nCmd:g.nCmd,rollRate:g.rollRate};
+  }
+  const b=Math.abs(p.bank);
+  let nCmd=Math.cos(p.gamma)/Math.cos(Math.min(b,33)*D2R)+(S.p>=0?S.p*1.5:S.p);
+  if(p.pitch>28&&nCmd>1)nCmd=1-(p.pitch-28)*0.1;
+  if(p.pitch<-13&&nCmd<1)nCmd=1+(-13-p.pitch)*0.1;
+  let rollRate;
+  if(Math.abs(S.r)>0.05)rollRate=S.r*15;else if(b>33)rollRate=-Math.sign(p.bank)*5;else rollRate=0;
+  return{nCmd,rollRate};
+}
+
+function step(dt){
+  const p=P;
+  const ct=controls(p,dt);
+  const c=CONF[confKey(p)];
+  const n1T=(p.athrActive&&p.athrN1!=null)?p.athrN1:leverN1(p,p.lever);
+  p.n1+=clamp(n1T-p.n1,-5.5*dt,6.5*dt);
+  const gt=p.gearLever==='DOWN'?1:0;if(p.gearPos!==gt)p.gearPos=clamp(p.gearPos+(gt?1:-1)*dt/9,0,1);
+  p.flapPos+=clamp(p.flapLever-p.flapPos,-dt/7,dt/7);
+  const F=forces(p),prevIas=p.ias;
+  if(p.onGround){
+    let brake=0;
+    if(p.brakeManual)brake=4;else if(p.abActive)brake=p.autobrake==='MAX'?6:p.autobrake==='MED'?3:1.7;
+    const a=F.T-F.D-0.015*G-(p.ias>0.5?brake:0);
+    p.ias=Math.max(0,p.ias+a/KT*dt);
+    p.pitch=Math.max(0,p.pitch+ct.pr*dt);
+    p.nz=liftN(p,p.pitch,c)*(p.gsDeployed?0.2:1);
+    if(p.pitch>11.4&&!p.tailstrike){p.tailstrike=true;score(-100,'Tailstrike: pitch above 11.5° with the wheels on the ground');sysMsg('TAILSTRIKE — pitch exceeded 11.5° on the ground.');}
+    if(p.nz>1.02&&p.ias>100&&!p.gsDeployed){p.onGround=false;onLiftoff();}
+    p.hdg=wrap360(p.hdg+ct.steer*dt);p.bank=0;p.gamma=0;p.gdot=0;
+  }else{
+    p.bank=clamp(p.bank+ct.rollRate*dt,-67,67);
+    const gDeg=p.gamma*R2D;
+    const aReq=clamp(reqAlpha(p,ct.nCmd,c),-5,14);
+    const pitchT=clamp(gDeg+aReq,-15,30);
+    p.pitch+=clamp((pitchT-p.pitch)*1.6,-4,4)*dt;
+    const alpha=Math.min(p.pitch-gDeg,15);
+    p.nz=liftN(p,alpha,c)*(p.sb?1-0.05*p.sb:1);
+    const V=Math.max(p.ias,40)*KT;
+    p.gdot=(G/V)*(p.nz*Math.cos(p.bank*D2R)-Math.cos(p.gamma));
+    p.gamma+=p.gdot*dt;
+    p.ias=Math.max(40,p.ias+(F.T-F.D-G*Math.sin(p.gamma))/KT*dt);
+    p.hdg=wrap360(p.hdg+(G*Math.tan(p.bank*D2R)/V)*R2D*dt);
+  }
+  const tas=p.ias*(1+(p.alt/1000)*0.017)*KT;
+  let vx=tas*Math.cos(p.gamma)*Math.sin(p.hdg*D2R),vy=tas*Math.cos(p.gamma)*Math.cos(p.hdg*D2R);
+  const wx=-WIND.spd*KT*Math.sin(WIND.dir*D2R),wy=-WIND.spd*KT*Math.cos(WIND.dir*D2R);
+  if(p.onGround){const along=wx*Math.sin(p.hdg*D2R)+wy*Math.cos(p.hdg*D2R),g=Math.max(0,tas+along);vx=g*Math.sin(p.hdg*D2R);vy=g*Math.cos(p.hdg*D2R);}
+  else{vx+=wx;vy+=wy;}
+  p.gs=Math.hypot(vx,vy)/KT;if(p.gs>2)p.trk=wrap360(Math.atan2(vx,vy)*R2D);
+  p.x+=vx*dt/1852;p.y+=vy*dt/1852;
+  p.vs=tas*Math.sin(p.gamma)/FT*60;
+  p.alt+=tas*Math.sin(p.gamma)/FT*dt;
+  p.iasRate=lerp(p.iasRate,(p.ias-prevIas)/dt,0.05);
+  if(!p.onGround)p.maxRa=Math.max(p.maxRa||0,p.alt-ELEV);
+  if(!p.onGround&&p.alt<=ELEV){if((p.maxRa||0)<60&&!p.landT&&simT-(p.liftT||0)<20){p.onGround=true;p.gamma=0;p.alt=ELEV;}else touchdown();}
+  if(p.onGround)p.alt=ELEV;
+  p.ra=p.alt-ELEV;
+}
+
+function onLiftoff(){P.liftT=simT;P.gamma=0.3*D2R;P.alt=ELEV+0.5;P.maxRa=0;}
+function touchdown(){
+  const p=P,vs=p.vs,r=rwy(p);p.alt=ELEV;p.onGround=true;
+  const onRwy=r.along<=0.03&&r.along>=-RWY_LEN&&Math.abs(r.xtk)<0.0135;
+  if(p.gearPos<0.98)return crash('Gear-up landing: the landing gear was not down and locked.');
+  if(!onRwy)return crash(r.along>0?'Touched down short of runway 22.':'Touched down off the runway surface.');
+  if(Math.abs(p.bank)>10)return crash(`Wingtip and engine strike: ${Math.abs(p.bank).toFixed(0)}° of bank at touchdown.`);
+  if(vs<-1000)return crash(`Hard landing beyond structural limits (${Math.round(vs)} fpm).`);
+  p.gamma=0;p.landed=true;p.landT=simT;
+  p.td={vs,dist:-r.along*1852,off:r.xtk*1852};
+  if(p.splrArm&&p.lever<=0.5)p.gsDeployed=true;
+  p.abActive=true;
+  const v=Math.round(vs);
+  if(vs>-240)score(60,`Smooth touchdown (${v} fpm)`);else if(vs>-400)score(40,`Normal touchdown (${v} fpm)`);else if(vs>-600)score(15,`Firm touchdown (${v} fpm)`);else score(-30,`Hard landing (${v} fpm)`);
+  const d=p.td.dist;
+  if(d>=150&&d<=750)score(30,`Touchdown in the touchdown zone (${Math.round(d)} m past the threshold)`);else score(-30,`Touchdown outside the zone (${Math.round(d)} m past the threshold)`);
+  if(Math.abs(p.td.off)<5)score(20,`On the centreline (${Math.abs(p.td.off).toFixed(1)} m)`);
+  if(!R.landClr){score(-100,'Landed without a landing clearance');}
+}
+function crash(why){P.crashed=true;P.crashWhy=why;crc();sysMsg('CRASH — '+why);later(2.5,()=>finishPilot());}
+
+/* ---------- systems: warnings, memos, callouts */
+function toMemo(p){return[
+  {t:'AUTO BRK',v:'MAX',ok:p.autobrake==='MAX'},{t:'SIGNS',v:'ON',ok:true},
+  {t:'CABIN',v:'CHECK',okT:'CABIN READY',ok:chkDone('bto','CABIN CREW')},
+  {t:'SPLRS',v:'ARM',ok:p.splrArm},{t:'FLAPS',v:'T.O',ok:p.flapLever>=1&&p.flapLever<=3},
+  {t:'T.O CONFIG',v:'TEST',okT:'T.O CONFIG NORMAL',ok:p.toConfigOk}];}
+function ldgMemo(p){return[
+  {t:'LDG GEAR',v:'DN',ok:p.gearPos>0.99},{t:'SIGNS',v:'ON',ok:true},
+  {t:'CABIN',v:'CHECK',okT:'CABIN READY',ok:chkDone('ldg','CABIN CREW')},
+  {t:'SPLRS',v:'ARM',ok:p.splrArm},{t:'FLAPS',v:'FULL',ok:p.flapLever===4}];}
+const FWC_ALT=[[2500,'two thousand five hundred'],[1000,'one thousand'],[500,'five hundred'],[400,'four hundred'],[300,'three hundred'],[200,'minimum'],[100,'one hundred'],[50,'fifty'],[40,'forty'],[30,'thirty'],[20,'twenty'],[10,'ten']];
+function systems(p,dt){
+  if(p.conf1F&&!p.onGround&&p.ias>210&&p.flapLever===1)p.conf1F=false;
+  if(p.onGround&&!p.landed&&p.toArmed&&p.ias>72&&p.lever<=0.5&&!p.abActive&&!p.rto){p.rto=true;p.abActive=true;if(p.splrArm)p.gsDeployed=true;sysMsg('Rejected takeoff: autobrake MAX, ground spoilers.');}
+  if(p.landed&&p.splrArm&&p.lever<=0.5&&!p.gsDeployed)p.gsDeployed=true;
+  if(p.landed&&p.lever>0.5&&p.ias>40&&p.gsDeployed&&p.lever>5)p.gsDeployed=false;
+  p.fob=Math.max(0,p.fob-2*(280+Math.pow(Math.max(p.n1-20,0),2)*0.52)*dt/3600);
+  // warnings
+  const w=[];
+  if(p.onGround&&!p.landed&&p.lever>=34.5&&(p.flapLever===0||p.flapLever===4))w.push({t:'CONFIG FLAPS NOT IN T.O CONFIG',l:'r'});
+  if(p.onGround&&!p.landed&&p.lever>=34.5&&p.sb>0)w.push({t:'CONFIG SPD BRK NOT RETRACTED',l:'r'});
+  if(!p.onGround&&p.ias>vmax(p)+4){const which=p.ias>VMO?'VMO':(p.gearPos>0.05&&p.ias>VLE)?'VLE':'VFE';w.push({t:'OVERSPEED',l:'r',sub:`${which} ${vmax(p)} KT`});}
+  if(!p.onGround&&p.ra<750&&p.gearPos<0.99&&p.vs<-200&&p.lever<=25.5&&p.liftT!==undefined?simT-(p.liftT||0)>60:!p.onGround&&p.ra<750&&p.gearPos<0.99&&p.vs<-200)w.push({t:'L/G GEAR NOT DOWN',l:'r'});
+  if(p.apOffT&&simT-p.apOffT<6)w.push({t:'AUTO FLT AP OFF',l:'r'});
+  if(p.athrOffT&&simT-p.athrOffT<6)w.push({t:'AUTO FLT A/THR OFF',l:'a'});
+  if(p.toCfgFail&&simT-p.toCfgFail<8)w.push({t:'CONFIG — T.O CONFIG TEST FAILED',l:'r'});
+  for(const x of w){if(!p.warnSeen[x.t]){p.warnSeen[x.t]=simT;if(x.l==='r'){p.mw=true;if(x.t!=='AUTO FLT AP OFF')crc();}else{p.mc=true;chime();}
+    if(x.t==='OVERSPEED')score(-20,'Overspeed: '+x.sub);}}
+  for(const k in p.warnSeen){if(!w.find(x=>x.t===k))delete p.warnSeen[k];}
+  if(p.warnSeen['OVERSPEED']||p.warnSeen['L/G GEAR NOT DOWN']){if(Math.floor(simT*2)!==Math.floor((simT-dt)*2))crc();}
+  if(!w.some(x=>x.l==='r'))p.mw=p.mw&&false;
+  p.warn=w;
+  // FWC altitude callouts on approach
+  if(!p.onGround&&p.gearPos>0.99&&p.vs<0&&(p.landT===undefined)){
+    for(const[h,word]of FWC_ALT){if(p.fwcPrev>ELEV+h&&p.alt<=ELEV+h){speak(word,'FWC');if(h===20&&!p.ap)later(0.4,()=>speak('retard','FWC'));if(h===10&&p.ap)later(0.3,()=>speak('retard','FWC'));}}
+    if(p.ra<1000&&p.fwcPrev>=ELEV+1000)stableCheck(p);
+  }
+  if((p.ra<15&&!p.onGround&&p.vs<0)||(p.landed&&p.ias>40)){if(p.lever>0.5&&simT-(p.retT||0)>1.6&&p.ra<20){p.retT=simT;speak('retard','FWC');}}
+  p.fwcPrev=p.alt;
+}
+function stableCheck(p){
+  const r=rwy(p),dev=Math.abs(p.alt-gpAlt(r.along)),ok=p.flapLever>=3&&p.gearPos>0.99&&Math.abs(r.xtk)<0.3&&dev<200&&p.ias>=SPD.VAPP-5&&p.ias<=SPD.VAPP+20&&p.vs>-1100;
+  if(ok)score(40,'Stabilised at 1000 ft (configured, on speed, on the ILS)');else score(-40,'Not stabilised at 1000 ft — consider a go-around');
+}
+
+/* =====================================================================
+   Score + log
+   ===================================================================== */
+let SC={total:0,items:[]};
+function score(pts,txt){SC.total+=pts;SC.items.push({pts,txt});if(GM!=='play'&&pts<0)out('cockpit','sys',`${pts} · ${txt}`,'bad');}
+function logLine(who,text,cls){
+  const el=MODE==='atc'?$('#aLog'):$('#log');if(!el)return;
+  const d=document.createElement('div');
+  const tag={atc:'w-atc',you:'w-you',fo:'w-fo',cpt:'w-cpt',sys:'w-sys'}[cls||who]||'w-atc';
+  d.innerHTML=`<span class="w ${cls==='bad'?'w-bad':cls==='good'?'w-good':tag}">${esc(who.toUpperCase())}</span>${esc(text)}`;
+  el.appendChild(d);while(el.children.length>120)el.firstChild.remove();el.scrollTop=el.scrollHeight;
+}
+const sysMsg=t=>out('cockpit','sys',t,'sys');
+function visScope(scope){return scope==='radio'||(scope==='cockpit'&&MODE==='pilot')||(scope==='atc'&&MODE==='atc');}
+function renderLog(scope,who,text,cls){if(visScope(scope))logLine(who,text,cls);}
+function speakScoped(scope,text,voice){if(visScope(scope))speak(text,voice);}
+function out(scope,who,text,cls,voice){renderLog(scope,who,text,cls);if(voice)speakScoped(scope,text,voice);if(NET.on&&NET.host)netSend({t:'log',scope,who,text,cls,voice:voice||null});}
+
+/* =====================================================================
+   PILOT: radio (ATC script, readbacks checked by keywords)
+   ===================================================================== */
+const R={pending:null,flags:{},cleared:false,landClr:false,missed:null,clr:{}};
+const CSR={re:/\b(swiss )?47 ?k\b/,miss:'your callsign (Swiss 47K)'};
+const need=(re,miss)=>({re,miss});
+function atcTx(unit,text,rb){
+  if(P.com1.act===unit)hearAtc({unit,text,rb});
+  else{R.missed={unit,text,rb};R.missedT=simT;}
+}
+function hearAtc(m){
+  out('radio',USHORT[m.unit]||'ATC',m.text,'atc','ATC');
+  if(m.rb){R.pending={kind:'readback',unit:m.unit,...m.rb,repeat:m.text};armAuto();}
+  renderCoach();
+}
+function pilotCall(unit,spec){R.pending={kind:'call',unit,...spec};armAuto();renderCoach();}
+function armAuto(){
+  if(userRadio())return;
+  const pd=R.pending,wait=pd.kind==='call'?2.5:2.2;
+  later(wait,()=>{if(R.pending!==pd)return;if(P.com1.act!==pd.unit){P.com1.sby=P.com1.act;P.com1.act=pd.unit;out('cockpit','FO',`(tunes COM1 to ${fmtF(pd.unit)})`,'fo');}
+    later(1,()=>{if(R.pending===pd)transmit(pd.say,true);});});
+}
+function transmit(text,byCrew,voice,fromRole){
+  if(NET.on&&!NET.host&&!byCrew){toHost({t:'tx',text,voice:!!voice,role:NET.me.role});return;}
+  const pd=R.pending,who=byCrew?'fo':'you';
+  out('radio',byCrew?'FO':NET.on?(fromRole||NET.me.role):'YOU',text,who,byCrew?'FO':(NET.on&&!voice?'PIL':null));
+  if(!byCrew&&!NET.on)tone(1800,0.04,'sine',0.04);
+  if(humanATC()){R.rbHint=null;if(P.onGround&&!P.landed)R.calledReady=true;R.calledIn=true;return;}
+  if(!pd){later(1.5,()=>{const u=P.com1.act;if(UNITS[u])atcLog2(u,`${CALL}, ${UNITS[u]}, nothing for you at the moment. Standby.`);});return;}
+  if(P.com1.act!==pd.unit){
+    later(2,()=>sysMsg(`No reply. You transmitted on ${fmtF(P.com1.act)} (${UNITS[P.com1.act]||'unassigned'}). ${UNITS[pd.unit]} is ${fmtF(pd.unit)}.`));
+    if(!byCrew)score(-5,'Transmitted on the wrong frequency');return;
+  }
+  const n=normalize(text);
+  for(const b of(pd.bad||[]))if(b.re.test(n)){fail(pd,b.why);return;}
+  const miss=pd.need.filter(x=>!x.re.test(n));
+  if(miss.length){fail(pd,'Missing '+miss.map(m=>m.miss).join(', ')+'.');return;}
+  if(!byCrew)score(5,pd.kind==='readback'?'Correct readback':'Correct radio call');
+  R.pending=null;renderCoach();
+  later(pd.kind==='call'?1.8:0.5,pd.then||(()=>{}));
+}
+function fail(pd,why){
+  score(-8,'Radio: '+why);
+  later(1.6,()=>{
+    if(!pd.need.some(x=>x===CSR)||CSR.re.test('')){}
+    if(pd.kind==='readback'){const body=pd.repeat.replace(CALL+', ','');atcLog2(pd.unit,`${CALL}, negative. I say again: ${body}`);}
+    else atcLog2(pd.unit,`Station calling ${UNITS[pd.unit]}, say again.`);
+    if(GM!=='play')sysMsg('Coach: '+why);
+  });
+}
+function atcLog2(unit,text){out('radio',USHORT[unit]||'ATC',text,'atc','ATC');}
+
+function radioTick(){
+  const p=P,r=rwy(p),f=R.flags;
+  if(humanATC()){humanTick(p,f);return;}
+  if(R.missed&&p.com1.act===R.missed.unit&&simT-R.missedT>1.5){const m=R.missed;R.missed=null;hearAtc({...m,text:`${CALL}, I say again: ${m.text.replace(CALL+', ','')}`});}
+  if(p.onGround&&!p.landed&&p.ias>30&&!R.cleared&&!f.stop){f.stop=1;atcLog2(F_.TWR,`${CALL}, STOP IMMEDIATELY, I say again, STOP IMMEDIATELY. You are not cleared for takeoff.`);score(-200,'Started the takeoff roll without a takeoff clearance');}
+  if(R.pending)return;
+  if(SCN==='to'){
+    if(!f.ready&&simT>3){f.ready=1;pilotCall(F_.TWR,{say:`Geneva Tower, ${CALL}, ready for departure runway 22`,
+      need:[CSR,need(/ready/,'"ready for departure"'),need(/\b22\b/,'runway 22')],
+      bad:[{re:/ready for takeoff/,why:'Pilots say "ready for departure". The word "takeoff" is only used in the takeoff clearance itself.'}],
+      then:()=>atcTx(F_.TWR,`${CALL}, wind 230 degrees 5 knots, runway 22, cleared for takeoff`,{say:`Runway 22, cleared for takeoff, ${CALL}`,
+        need:[CSR,need(/cleared/,'"cleared"'),need(/takeoff/,'"takeoff"'),need(/\b22\b/,'the runway designator (22)')],
+        bad:[{re:/runway 0?4\b/,why:'Wrong runway. You are lined up on runway 22.'}],then:()=>{R.cleared=true;}})});return;}
+    if(R.cleared&&!f.dep&&!p.onGround&&p.ra>900){f.dep=1;atcTx(F_.TWR,`${CALL}, contact Geneva Departure 119.530, good day`,{say:`Departure 119.530, ${CALL}, good day`,
+      need:[CSR,need(/119\.?53/,'the frequency 119.530')],
+      then:()=>later(2.5,()=>{const a=Math.round(P.alt/100)*100;pilotCall(F_.DEP,{say:`Geneva Departure, ${CALL}, passing ${a} feet, climbing altitude 5000 feet`,
+        need:[CSR,need(/departure/,'the station name'),need(/\b5000\b/,'your cleared altitude (5000 ft)')],
+        bad:[{re:/flight level/,why:'Below the transition altitude (7000 ft) say "altitude … feet", not a flight level.'}],
+        then:()=>atcTx(F_.DEP,`${CALL}, Geneva Departure, identified. Turn right heading 040, climb altitude 7000 feet`,{say:`Right heading 040, climb altitude 7000 feet, ${CALL}`,
+          need:[CSR,need(/right/,'the turn direction (right)'),need(/\b0?40\b/,'heading 040'),need(/\b7000\b/,'altitude 7000')],
+          bad:[{re:/\bleft\b/,why:'ATC said turn RIGHT heading 040.'},{re:/flight level/,why:'7000 ft is an altitude on QNH, not a flight level.'}],
+          then:()=>{setClr({hdg:40,alt:7000});f.depCalled=1;}})});})});return;}
+    if(f.depCalled&&!f.arr&&r.along>5&&!p.onGround){f.arr=1;atcTx(F_.DEP,`${CALL}, contact Geneva Arrival 136.255`,{say:`Arrival 136.255, ${CALL}`,
+      need:[CSR,need(/136\.?255/,'the frequency 136.255')],
+      then:()=>later(2.5,()=>{const a=Math.round(P.alt/100)*100;pilotCall(F_.ARR,{say:`Geneva Arrival, ${CALL}, altitude ${a} feet, heading ${hdgStr(P.fcu.hdg)}`,
+        need:[CSR,need(/arrival/,'the station name'),need(/\b\d{4}\b/,'your altitude')],
+        then:()=>atcTx(F_.ARR,`${CALL}, Geneva Arrival, descend altitude 5000 feet, QNH 1018, expect ILS approach runway 22`,{say:`Descend altitude 5000 feet, QNH 1018, expect ILS 22, ${CALL}`,
+          need:[CSR,need(/descend/,'"descend"'),need(/\b5000\b/,'altitude 5000'),need(/1018/,'the QNH (1018)')],
+          bad:[{re:/flight level/,why:'5000 ft is an altitude on QNH 1018, not a flight level.'}],
+          then:()=>{setClr({alt:5000});f.desc=1;}})});})});return;}
+    if(f.desc&&!f.base&&r.along>12&&!p.onGround){f.base=1;atcTx(F_.ARR,`${CALL}, turn right heading 130`,{say:`Right heading 130, ${CALL}`,
+      need:[CSR,need(/right/,'the turn direction (right)'),need(/\b130\b/,'heading 130')],bad:[{re:/\bleft\b/,why:'ATC said turn RIGHT.'}],
+      then:()=>setClr({hdg:130})});return;}
+  }
+  if(f.base&&!f.ils&&r.perp>-2.6&&r.along>5&&!p.onGround){f.ils=1;atcTx(F_.ARR,`${CALL}, turn right heading 190, cleared ILS approach runway 22, report established`,{say:`Right heading 190, cleared ILS approach runway 22, wilco, ${CALL}`,
+    need:[CSR,need(/right/,'the turn direction (right)'),need(/\b190\b/,'heading 190'),need(/cleared/,'"cleared"'),need(/ils|approach/,'the approach (ILS)'),need(/\b22\b/,'runway 22')],
+    bad:[{re:/\bleft\b/,why:'ATC said turn RIGHT heading 190.'}],then:()=>setClr({hdg:190,ils:true})});return;}
+  if(f.ils&&!f.est&&!p.onGround&&(p.lat==='LOC'||p.lat==='LAND'||(Math.abs(r.xtk)<0.15&&Math.abs(angDiff(p.trk,CRS22))<10)||r.along<7)){f.est=1;pilotCall(F_.ARR,{say:`${CALL}, established localizer runway 22`,
+    need:[CSR,need(/established/,'"established"')],
+    then:()=>atcTx(F_.ARR,`${CALL}, contact Tower 118.700`,{say:`Tower 118.700, ${CALL}`,need:[CSR,need(/118\.?7/,'the frequency 118.700')],
+      then:()=>later(2.5,()=>{const d=Math.max(2,Math.round(rwy(P).along));pilotCall(F_.TWR,{say:`Geneva Tower, ${CALL}, ILS runway 22, ${d} miles`,
+        need:[CSR,need(/tower/,'the station name'),need(/\b22\b/,'runway 22')],
+        then:()=>atcTx(F_.TWR,`${CALL}, Geneva Tower, wind 230 degrees 5 knots, runway 22, cleared to land`,{say:`Runway 22, cleared to land, ${CALL}`,
+          need:[CSR,need(/cleared/,'"cleared"'),need(/land/,'"to land"'),need(/\b22\b/,'the runway designator (22)')],then:()=>{R.landClr=true;}})});})})});return;}
+  if(p.landed&&p.ias<50&&!f.vac&&!p.crashed){f.vac=1;atcTx(F_.TWR,`${CALL}, vacate when able, contact Ground 121.680, good day`,{say:`Ground 121.680, ${CALL}, good day`,
+    need:[CSR,need(/121\.?68/,'the frequency 121.680')],then:()=>later(3,finishPilot)});}
+  // altitude bust check
+  if(R.clr.alt!==undefined&&R.clr.dir&&!R.clr.ils&&!['G/S','G/S*','LAND','FLARE'].includes(p.vert)){if((p.alt-R.clr.alt)*R.clr.dir>350&&!R.clr.busted){R.clr.busted=true;score(-50,`Altitude bust: ${Math.round(p.alt)} ft vs cleared ${R.clr.alt} ft`);atcLog2(P.com1.act,`${CALL}, check altitude, you were cleared ${R.clr.alt} feet.`);}}
+}
+function setClr(o){
+  if(o.alt!==undefined){R.clr.alt=o.alt;R.clr.dir=Math.sign(o.alt-P.alt)||1;R.clr.busted=false;}
+  if(o.hdg!==undefined)R.clr.hdg=o.hdg;
+  if(o.ils)R.clr.ils=true;
+  if(!humanCPT()){
+    later(1.6,()=>{const p=P;const bits=[];
+      if(o.hdg!==undefined){p.fcu.hdg=o.hdg;p.lat=p.lat==='LOC'||p.lat==='LAND'?p.lat:'HDG';bits.push(`Heading ${hdgStr(o.hdg)}`);}
+      if(o.alt!==undefined){p.fcu.alt=o.alt;pullAlt(p);bits.push(`${o.alt} feet`);}
+      if(bits.length)crewSay('CPT',bits.join(', ')+', set.');});
+  }
+}
+
+/* =====================================================================
+   PILOT: crew AI
+   ===================================================================== */
+const Crew={hands:false,gPitch:0,done:{},exp:[],co:{}};
+function crewSay(who,text){out('cockpit',who,text,who.toLowerCase(),who);}
+const CO=[
+  {id:'thrust',label:'Thrust set',open:p=>p.onGround&&!p.landed&&p.toArmed&&p.n1>=78,close:p=>p.ias>=85||!p.onGround},
+  {id:'100',label:'One hundred knots',open:p=>p.onGround&&!p.landed&&p.toArmed&&p.ias>=96,close:p=>p.ias>=112||!p.onGround},
+  {id:'v1',label:'V1',open:p=>p.onGround&&!p.landed&&p.toArmed&&p.ias>=SPD.V1-3,close:p=>p.ias>=SPD.V1+7||!p.onGround},
+  {id:'rotate',label:'Rotate',open:p=>p.onGround&&!p.landed&&p.toArmed&&p.ias>=SPD.VR-2,close:p=>!p.onGround||p.ias>=SPD.VR+8},
+  {id:'posclimb',label:'Positive climb',open:p=>!p.onGround&&!p.landed&&p.vs>250&&p.ra>15&&p.ra<900&&p.liftT!==undefined,close:p=>p.ra>=700},
+  {id:'spoilers',label:'Spoilers',open:p=>p.landed&&p.gsDeployed,close:p=>simT-p.landT>7||p.ias<70},
+  {id:'reverse',label:'Reverse green',open:p=>p.landed&&p.lever<0&&p.n1>30,close:p=>p.ias<70},
+  {id:'decel',label:'Decel',open:p=>p.landed&&p.iasRate<-3,close:p=>p.ias<70},
+  {id:'70',label:'Seventy knots',open:p=>p.landed&&p.ias<=72,close:p=>p.ias<50}
+];
+function coTick(){
+  const p=P;
+  for(const c of CO){
+    const st=Crew.co[c.id]||'idle';
+    if(st==='idle'&&c.open(p)){Crew.co[c.id]='open';
+      if(!humanFO())later(0.25,()=>{if(Crew.co[c.id]==='open'){Crew.co[c.id]='done';crewSay('FO',c.label);coAfter(c.id,false);}});
+      renderCrew();}
+    else if(st==='open'&&c.close(p)){Crew.co[c.id]='missed';
+      if(humanFO()){score(-10,`Missed callout “${c.label}”`);coAfter(c.id,true);}
+      renderCrew();}
+  }
+}
+function userCallout(id){
+  const c=CO.find(x=>x.id===id),st=Crew.co[id]||'idle';
+  out('cockpit',NET.on?'FO':'YOU',c.label,'you',NET.on?'PIL':null);
+  if(st==='open'){Crew.co[id]='done';score(10,`Callout “${c.label}” on time`);coAfter(id,false);}
+  else if(st==='idle')score(-5,`“${c.label}” called at the wrong time`);
+  renderCrew();
+}
+function coAfter(id,missed){
+  if(humanCPT())return;
+  if(id==='rotate'){if(missed)crewSay('CPT','Rotating.');Crew.gPitch=1;later(4.5,()=>{Crew.gPitch=0;});}
+  if(id==='posclimb'){if(missed)crewSay('CPT','Positive climb.');later(0.6,()=>{crewSay('CPT','Gear up.');expect('Gear up',()=>P.gearLever==='UP',6,'Gear up, please!',()=>{setGear('UP');crewSay('CPT','I have raised the gear.');});});}
+}
+function expect(name,test,secs,again,fb){Crew.exp.push({name,test,until:simT+secs,secs,again,fb,tries:0});renderCoach();}
+function expTick(){
+  for(const e of [...Crew.exp]){
+    if(e.test()){Crew.exp.splice(Crew.exp.indexOf(e),1);score(5,`${e.name}: done promptly`);renderCoach();continue;}
+    if(simT>e.until){if(!e.tries){e.tries=1;e.until=simT+e.secs;if(e.again)crewSay('CPT',e.again);score(-5,`${e.name}: slow response`);}
+      else{Crew.exp.splice(Crew.exp.indexOf(e),1);if(e.fb){e.fb();score(-10,`${e.name}: the Captain had to do it`);}else score(-5,`${e.name}: not done`);renderCoach();}}
+  }
+}
+const CAP=[
+  {id:'hello',w:p=>simT>1.5&&SCN==='to',d:()=>crewSay('CPT','Before takeoff checklist, please. Then get us the takeoff clearance from Tower on 118.700.')},
+  {id:'hello2',w:p=>simT>1.5&&SCN==='app',d:()=>crewSay('CPT','We are on base for the ILS 22, autopilot is in. Approach checklist when you are ready.')},
+  {id:'tkoff',w:p=>R.cleared&&chkComplete('bto')&&p.onGround&&!p.landed,d:()=>{crewSay('CPT','Takeoff!');later(0.8,()=>{P.lever=35;P.splrArm=P.splrArm;});}},
+  {id:'remind',w:p=>R.cleared&&!chkComplete('bto')&&simT>40,d:()=>crewSay('CPT','We are cleared. Let’s finish the before takeoff checklist.')},
+  {id:'ap1',w:p=>!p.onGround&&p.ra>150&&!p.landed,d:()=>{P.ap=true;crewSay('CPT','Autopilot one.');}},
+  {id:'clb',w:p=>!p.onGround&&p.ra>THR_RED&&p.lever>25.5,d:()=>{P.lever=25;crewSay('CPT','Climb.');}},
+  {id:'f0',w:p=>!p.onGround&&p.ra>ACC&&p.ias>SPD.S&&p.flapLever>0&&!p.landed&&p.vs>0,d:()=>{crewSay('CPT','Flaps zero.');expect('Flaps zero',()=>P.flapLever===0,8,'Flaps zero, please.',()=>setFlaps(0));}},
+  {id:'ato',w:p=>Crew.done.f0&&p.flapLever===0&&p.gearLever==='UP'&&p.ra>2500,d:()=>crewSay('CPT','After takeoff checklist.')},
+  {id:'appchk',w:p=>R.flags.desc&&SCN==='to',d:()=>{P.autobrake='MED';crewSay('CPT','Autobrake medium. Approach checklist, please.');}},
+  {id:'s210',w:p=>R.flags.base&&!p.onGround,d:()=>{P.fcu.spd=210;crewSay('CPT','Speed 210.');}},
+  {id:'f1',w:p=>Crew.done.s210&&p.ias<226&&p.flapLever===0,d:()=>{crewSay('CPT','Flaps one.');expect('Flaps one',()=>P.flapLever>=1,8,'Flaps one, please.',()=>setFlaps(1));}},
+  {id:'appr',w:p=>R.clr.ils,d:()=>{const p=P;p.locArmed=true;p.gsArmed=true;p.ls=true;p.fcu.spd=180;crewSay('CPT','APPR armed. Speed 180.');}},
+  {id:'f2',w:p=>Crew.done.appr&&p.ias<196&&p.flapLever>=1&&p.flapLever<2,d:()=>{crewSay('CPT','Flaps two.');expect('Flaps two',()=>P.flapLever>=2,8,'Flaps two, please.',()=>setFlaps(2));}},
+  {id:'gdn',w:p=>Crew.done.f2&&p.flapLever>=2&&(p.vert==='G/S*'||p.vert==='G/S'||rwy(p).along<9),d:()=>{crewSay('CPT','Gear down.');expect('Gear down',()=>P.gearLever==='DOWN',6,'Gear down, please!',()=>{setGear('DOWN');P.splrArm=true;});}},
+  {id:'s160',w:p=>Crew.done.gdn&&p.gearLever==='DOWN',d:()=>{P.fcu.spd=160;crewSay('CPT','Speed 160. Arm the spoilers, please.');}},
+  {id:'f3',w:p=>Crew.done.s160&&p.ias<183&&p.flapLever===2,d:()=>{crewSay('CPT','Flaps three.');expect('Flaps three',()=>P.flapLever>=3,8,'Flaps three, please.',()=>setFlaps(3));}},
+  {id:'ff',w:p=>Crew.done.f3&&p.ias<175&&p.flapLever===3,d:()=>{P.fcu.spd=SPD.VAPP;crewSay('CPT','Flaps full.');expect('Flaps full',()=>P.flapLever===4,8,'Flaps full, please.',()=>setFlaps(4));}},
+  {id:'ldgchk',w:p=>p.flapLever===4&&p.gearLever==='DOWN'&&!p.onGround,d:()=>crewSay('CPT','Landing checklist.')},
+  {id:'rev',w:p=>p.landed&&simT-p.landT>0.8,d:()=>{P.lever=-20;}},
+  {id:'idl',w:p=>p.landed&&p.ias<70,d:()=>{P.lever=0;}},
+  {id:'stop',w:p=>p.landed&&p.ias<25,d:()=>{P.ap=false;crewSay('CPT','Nice job. Let’s vacate.');}}
+];
+function capTick(){
+  if(humanCPT())return;
+  for(const e of CAP){if(!Crew.done[e.id]&&e.w(P)){Crew.done[e.id]=1;e.d();renderCoach();}}
+  if(P.landed&&P.ias<60)Crew.hands=true;
+}
+function cptCommand(id){
+  const p=P;
+  const cmds={gearup:'Gear up',geardn:'Gear down',f0:'Flaps zero',f1:'Flaps one',f2:'Flaps two',f3:'Flaps three',f4:'Flaps full'};
+  out('cockpit',NET.on?'CPT':'YOU',cmds[id],'you','PIL');
+  if(humanFO()){const nm={gearup:'Gear up',geardn:'Gear down',f0:'Flaps zero',f1:'Flaps one',f2:'Flaps two',f3:'Flaps three',f4:'Flaps full'}[id];
+    const tst={gearup:()=>P.gearLever==='UP',geardn:()=>P.gearLever==='DOWN',f0:()=>P.flapLever===0,f1:()=>P.flapLever===1,f2:()=>P.flapLever===2,f3:()=>P.flapLever===3,f4:()=>P.flapLever===4}[id];
+    expect(nm,tst,8,null,null);return;}
+  later(1.1,()=>{
+    if(id==='gearup'){if(p.onGround)return crewSay('FO','We are on the ground, I will not raise the gear.');setGear('UP');crewSay('FO','Gear up.');}
+    else if(id==='geardn'){if(p.ias>VLO+3)return crewSay('FO',`Speed is above ${VLO}, unable gear down.`);setGear('DOWN');p.splrArm=true;crewSay('FO','Gear down. Ground spoilers armed.');}
+    else{const n=+id[1];const key=n===1?(p.flapLever>1?'1+F':'1'):['0','1','2','3','FULL'][n];const vfe=CONF[key].vfe;
+      if(n>p.flapLever&&p.ias>vfe)return crewSay('FO',`Speed too high for flaps ${n===4?'full':n}. Limit is ${vfe} knots.`);
+      if(n<p.flapLever&&p.ias<vls({...p,flapLever:n,conf1F:false,vert:'',onGround:false})-5)return crewSay('FO',`Speed too low to retract. Accelerate first.`);
+      setFlaps(n);crewSay('FO',`Speed checked, flaps ${n===4?'full':n}.`);}
+    renderCoach();
+  });
+}
+function setFlaps(n){const p=P;if(n===1)p.conf1F=p.onGround||p.flapLever>1;else p.conf1F=false;p.flapLever=n;}
+function setGear(d){if(d==='UP'&&P.onGround)return;P.gearLever=d;}
+function apOff(takeover){const p=P;if(!p.ap)return;p.ap=false;p.apOffT=simT;cavalry();if(takeover)sysMsg('Autopilot disconnected by sidestick input.');}
+
+/* =====================================================================
+   Checklists (A320 normal checklist)
+   ===================================================================== */
+const CHK={
+ bto:{n:'Before takeoff',items:[['FLIGHT CONTROLS','CHECKED'],['FLIGHT INSTRUMENTS','CHECKED'],['BRIEFING','CONFIRMED'],['FLAP SETTING','CONF 1+F',p=>p.flapLever===1||'Flaps lever is not at 1'],['V1 · VR · V2 / FLX','141·145·150 / 54'],['ATC','SET'],['ECAM MEMO','TO NO BLUE',p=>toMemo(p).every(m=>m.ok&&m.t!=='CABIN')||toMemo(p).filter(m=>!m.ok&&m.t!=='CABIN').length===0||'The T.O memo still shows blue items'],null,['TAKEOFF RWY','22 CONFIRMED'],['CABIN CREW','ADVISED'],['TCAS','TA OR TA/RA'],['ENG MODE SEL','AS RQRD'],['PACKS','AS RQRD']]},
+ ato:{n:'After takeoff',items:[['LDG GEAR','UP',p=>(p.gearLever==='UP'&&p.gearPos<0.02)||'The gear is not up'],['FLAPS','RETRACTED',p=>p.flapLever===0||'The flaps are not retracted'],['PACKS','ON'],['BARO REF','QNH 1018']]},
+ app:{n:'Approach',items:[['BRIEFING','CONFIRMED'],['ECAM STATUS','CHECKED'],['SEAT BELTS','ON'],['BARO REF','QNH 1018'],['MINIMUM','200 FT RA'],['ENG MODE SEL','AS RQRD']]},
+ ldg:{n:'Landing',items:[['CABIN CREW','ADVISED'],['A/THR','SPEED / OFF'],['ECAM MEMO','LDG NO BLUE',p=>ldgMemo(p).every(m=>m.ok)||'The LDG memo still shows blue items']]},
+ aft:{n:'After landing',items:[['FLAPS','RETRACTED',p=>p.flapLever===0||'Retract the flaps'],['SPOILERS','DISARMED',p=>!p.splrArm||'Disarm the ground spoilers'],['APU','START'],['RADAR','OFF'],['PWS','OFF']]}
+};
+let CK={tab:'bto',done:{}};
+const chkDone=(id,name)=>!!CK.done[id+'|'+name];
+const chkComplete=id=>CHK[id].items.filter(Boolean).every(i=>CK.done[id+'|'+i[0]]);
+function chkClick(i){
+  const it=CHK[CK.tab].items[i];if(!it)return;const key=CK.tab+'|'+it[0];
+  if(CK.done[key])return;
+  if(it[2]){const r=it[2](P);if(r!==true){CK.fail=key;CK.failMsg=r;renderChk();sysMsg(`Checklist: ${it[0]} — ${r}.`);return;}}
+  CK.done[key]=1;CK.fail=null;
+  if(chkComplete(CK.tab)){const nm=CHK[CK.tab].n;out('cockpit',humanFO()?(NET.on?'FO':'YOU'):'FO',`${nm} checklist complete.`,humanFO()?'you':'fo');score(15,`${nm} checklist completed`);}
+  renderChk();renderCoach();
+}
+
+/* =====================================================================
+   PILOT: main tick + coach
+   ===================================================================== */
+function simTick(dt,frozen){
+  radT+=dt;
+  for(const t of TIMERS.filter(t=>t.t<=radT)){TIMERS.splice(TIMERS.indexOf(t),1);try{t.fn();}catch(e){console.error(e);}}
+  if(frozen)return;
+  simT+=dt;
+  const p=P;if(p.crashed||p.done)return;
+  updStick(dt);step(dt);systems(p,dt);radioTick();coTick();expTick();capTick();
+  if(humanCPT()&&!humanFO()&&!p.onGround&&p.ra>2000&&p.flapLever>0&&p.ias>SPD.S+15&&!Crew.done.cptFlapNag){Crew.done.cptFlapNag=1;crewSay('FO','Speed is above S. Flaps zero?');}
+  if(humanCPT()&&!humanFO()&&!p.onGround&&!p.landed&&p.gearLever==='DOWN'&&p.ra>400&&p.vs>300&&Crew.co.posclimb==='done'&&!Crew.done.gnag&&simT-(p.liftT||0)>12){Crew.done.gnag=1;crewSay('FO','Gear up?');}
+}
+function phaseTab(){
+  const p=P;
+  if(p.landed)return'aft';
+  if(p.onGround)return'bto';
+  if(R.flags.ils||rwy(p).along<14&&SCN==='app'&&p.gearLever==='DOWN')return'ldg';
+  if(R.flags.desc||SCN==='app')return'app';
+  return'ato';
+}
+let coachLast='';
+function coachStep(){
+  const p=P,r=rwy(p);
+  const pd=R.pending;
+  if(humanATC()&&userRadio()&&(ROLE==='CPT'||ROLE==='FO')){
+    if(!UNITS[p.com1.act]||p.com1.act===F_.ATIS)return{t:'<b>Tune a Geneva frequency</b> so the controller can hear you (Tower 118.700).',sel:'#kb'};
+    if(R.rbHint)return{t:'<b>ATC gave you a clearance. Read it back.</b> Hold TALK (or T) and say:',say:R.rbHint,sel:'#ptt'};
+    if(p.onGround&&!p.landed&&!R.calledReady&&SCN==='to')return{t:'<b>Call the controller</b> when you are ready. Hold TALK and say:',say:`Geneva Tower, ${CALL}, ready for departure runway 22`,sel:'#ptt'};
+    if(!p.onGround&&!R.calledIn&&SCN==='app')return{t:'<b>Check in with the controller.</b> Hold TALK and say:',say:`Geneva Arrival, ${CALL}, ${Math.round(p.alt/100)*100} feet, heading ${hdgStr(p.fcu.hdg)}`,sel:'#ptt'};
+    if(p.onGround&&!p.landed&&!R.cleared&&ROLE==='CPT')return{t:'Wait for the controller to clear you for takeoff.'};
+  }
+  if(pd&&userRadio()){
+    if(p.com1.act!==pd.unit){const inSby=p.com1.sby===pd.unit;return{t:inSby?`<b>${UNITS[pd.unit]} (${fmtF(pd.unit)}) is in STANDBY.</b> Press ⇄ to make it the active frequency.`:`<b>Tune ${UNITS[pd.unit]} ${fmtF(pd.unit)}.</b> Tap it on the kneeboard (or use the MHz/kHz knobs) to load STANDBY, then press ⇄.`,sel:inSby?'#rSwap':`[data-act="kb:${pd.unit}"]`};}
+    return{t:pd.kind==='readback'?`<b>Read back the clearance.</b> Hold TALK (or T), say it, release.`:`<b>Make your call.</b> Hold TALK (or T), say it, release.`,say:pd.say,sel:'#ptt'};
+  }
+  for(const e of Crew.exp)return{t:`<b>Captain asked: “${e.name}”.</b> ${e.name.startsWith('Gear')?'Move the gear lever (or press G).':'Move the flaps lever to the called position (F / V keys).'}`,sel:e.name.startsWith('Gear')?'#gearBtn':`[data-act="flap:${{'Flaps zero':0,'Flaps one':1,'Flaps two':2,'Flaps three':3,'Flaps full':4}[e.name]}"]`};
+  if(ROLE==='FO'){
+    const open=CO.find(c=>Crew.co[c.id]==='open');if(open)return{t:`<b>Call “${open.label}” now.</b> Press the callout button.`,sel:`[data-act="co:${open.id}"]`};
+    const next=CO.find(c=>(Crew.co[c.id]||'idle')==='idle');
+    if(p.onGround&&!p.landed&&p.toArmed&&next)return{t:`Takeoff roll. Watch the speed tape: <b>“${next.label}”</b> comes next (V1 ${SPD.V1}, VR ${SPD.VR}).`};
+    if(p.onGround&&!p.landed&&!chkComplete('bto'))return{t:`<b>Run the Before Takeoff checklist.</b> Tap each line once it is set. Arm GND SPLR and press T.O CONFIG first so the memo is all green.`,sel:!p.splrArm?'#pbSPLR':!p.toConfigOk?'#pbTOC':'#chkList'};
+    const tab=phaseTab();
+    if(tab!=='bto'&&!chkComplete(tab)&&(Crew.done.ato&&tab==='ato'||Crew.done.appchk&&tab==='app'||Crew.done.hello2&&tab==='app'||Crew.done.ldgchk&&tab==='ldg'||tab==='aft'&&p.ias<30))return{t:`<b>Run the ${CHK[tab].n} checklist.</b> Tap each line.`,sel:'#chkList'};
+    if(p.landed)return{t:'Landing roll. Call <b>“Spoilers”</b>, <b>“Reverse green”</b>, <b>“Decel”</b> and <b>“Seventy knots”</b> as they happen.'};
+    return{t:'Monitor: the Captain flies. Watch the PFD, answer ATC, and respond to the Captain’s calls.'};
+  }
+  // Captain
+  if(p.onGround&&!p.landed){
+    if(!p.splrArm)return{t:'<b>Arm the ground spoilers</b> (GND SPLR ARM). They deploy automatically on landing or a rejected takeoff.',sel:'#pbSPLR'};
+    if(!p.toConfigOk)return{t:'<b>Press T.O CONFIG</b> to test the takeoff configuration. The T.O memo turns green.',sel:'#pbTOC'};
+    if(!chkComplete('bto'))return{t:'<b>Run the Before Takeoff checklist.</b> Tap each line.',sel:'#chkList'};
+    if(!R.cleared)return{t:'Wait for the takeoff clearance.'};
+    if(!p.toArmed)return{t:'<b>Cleared for takeoff.</b> Set the thrust levers to FLX/MCT (key 4). SRS and RWY appear on the PFD.',sel:'[data-act="thr:35"]'};
+    if(p.ias<SPD.VR-3)return{t:`Keep it straight. At VR <b>${SPD.VR} kt</b> pull the sidestick back (hold ↓ or S) and rotate to about 15° nose up. Don’t go past 11.5° before the wheels leave the ground.`};
+    return{t:'<b>Rotate now:</b> hold ↓ / S. Aim for 15° pitch, then follow the green flight director bars.',sel:'#stick'};
+  }
+  if(!p.onGround&&!p.landed){
+    if(p.gearLever==='DOWN'&&p.vs>200&&p.ra<2000&&Crew.co.posclimb==='done'&&!R.flags.ils)return{t:'FO called “Positive climb”. <b>Call “Gear up”.</b>',sel:'[data-act="cmd:gearup"]'};
+    if(p.ra>THR_RED&&p.lever>25.5)return{t:'<b>LVR CLB is flashing.</b> Pull the thrust levers back to CL (key 3). The autothrust takes over.',sel:'[data-act="thr:25"]'};
+    if(p.flapLever>0&&p.ias>SPD.S&&p.vs>0&&!R.flags.base)return{t:`Above S speed (${SPD.S} kt). <b>Call “Flaps zero”.</b>`,sel:'[data-act="cmd:f0"]'};
+    if(!p.ap&&p.ra>400&&!R.flags.ils&&p.flapLever===0)return{t:'<b>Engage the autopilot</b> (AP1), or keep flying by hand with the flight director.',sel:'#pbAP1'};
+    const c=R.clr;
+    if(c.hdg!==undefined&&p.fcu.hdg!==c.hdg&&!(p.lat==='LOC'||p.lat==='LAND'))return{t:`ATC cleared heading <b>${hdgStr(c.hdg)}</b>. Set it with the HDG buttons, then PULL.`,sel:'#kHdg'};
+    if(c.hdg!==undefined&&p.lat!=='HDG'&&p.lat.indexOf('LOC')<0&&p.lat!=='LAND')return{t:'Heading is set. <b>Press HDG PULL</b> to fly it.',sel:'[data-act="hdg:pull"]'};
+    if(c.alt!==undefined&&!c.ils&&p.fcu.alt!==c.alt)return{t:`ATC cleared <b>${c.alt} ft</b>. Set it with the ALT buttons, then PULL.`,sel:'#kAlt'};
+    if(c.alt!==undefined&&!c.ils&&Math.abs(p.alt-c.alt)>200&&!['OP CLB','OP DES','ALT*','V/S','G/S','G/S*','LAND','FLARE','ROLL OUT'].includes(p.vert))return{t:'Altitude is set. <b>Press ALT PULL</b> to climb or descend.',sel:'[data-act="alt:pull"]'};
+    if(c.ils&&!p.locArmed&&!p.gsArmed&&!['LOC','LOC*','LAND'].includes(p.lat))return{t:'Cleared for the ILS. <b>Press APPR</b> to arm LOC and G/S.',sel:'#pbAPPR'};
+    if((R.flags.desc||SCN==='app')&&p.autobrake==='MAX')return{t:'Prepare for landing: <b>set AUTO BRK MED</b> (MAX is for takeoff).',sel:'#abMED'};
+    if(R.flags.base&&p.fcu.spd>210&&p.flapLever===0)return{t:'Slow down for the approach: <b>set SPD 210</b> (the autothrust follows).',sel:'#kSpd'};
+    if(R.flags.base&&p.ias<228&&p.flapLever===0)return{t:'Below 230 kt. <b>Call “Flaps one”.</b>',sel:'[data-act="cmd:f1"]'};
+    if(c.ils&&p.flapLever===1&&p.fcu.spd>180)return{t:'<b>Set SPD 180</b>, then call Flaps two below 200 kt.',sel:'#kSpd'};
+    if(c.ils&&p.flapLever===1&&p.ias<198)return{t:'<b>Call “Flaps two”.</b>',sel:'[data-act="cmd:f2"]'};
+    if(p.flapLever>=2&&p.gearLever==='UP'&&(p.vert==='G/S*'||p.vert==='G/S'||rwy(p).along<10))return{t:'Glide slope coming in. <b>Call “Gear down”.</b>',sel:'[data-act="cmd:geardn"]'};
+    if(p.gearLever==='DOWN'&&p.flapLever===2&&p.fcu.spd>160)return{t:'<b>Set SPD 160</b>, then Flaps three below 185 kt.',sel:'#kSpd'};
+    if(p.gearLever==='DOWN'&&p.flapLever===2&&p.ias<183)return{t:'<b>Call “Flaps three”.</b>',sel:'[data-act="cmd:f3"]'};
+    if(p.flapLever===3&&p.ias<176)return{t:`<b>Call “Flaps full”</b> and set SPD ${SPD.VAPP} (VAPP).`,sel:'[data-act="cmd:f4"]'};
+    if(p.flapLever===4&&p.fcu.spd>SPD.VAPP)return{t:`<b>Set SPD ${SPD.VAPP}</b> (VAPP).`,sel:'#kSpd'};
+    if(p.flapLever===4&&!chkComplete('ldg'))return{t:'<b>Landing checklist.</b> Tap each line.',sel:'#chkList'};
+    if(p.ra<60&&p.ra>0&&p.vs<0&&p.gearLever==='DOWN'&&rwy(p).along<2)return{t:p.ap?'Autoland: at “RETARD”, <b>pull the thrust levers to IDLE</b> (key 2).':'<b>Flare:</b> at 30 ft ease the stick back, at “RETARD” pull the thrust to IDLE (key 2).',sel:'[data-act="thr:0"]'};
+    if(R.flags.ils)return{t:p.ap?'The autopilot flies the ILS (LOC + G/S). Keep an eye on speed and configuration.':'Fly the ILS: keep the magenta diamonds centred (LS on), follow the FD bars.'};
+    return{t:'Fly the clearance. The flight director shows the way.'};
+  }
+  if(p.landed){if(p.ias>70&&p.lever>=0)return{t:'<b>Reverse thrust:</b> thrust levers to REV (key 1).',sel:'[data-act="thr:-20"]'};if(p.ias<=70&&p.lever<0)return{t:'70 knots. <b>Thrust levers to IDLE</b> (key 2).',sel:'[data-act="thr:0"]'};return{t:'Slow to taxi speed. Brakes: hold B.'};}
+  return{t:''};
+}
+function renderCoach(){
+  if(MODE!=='pilot')return;
+  const box=$('#coach');box.hidden=GM==='play';
+  $$('.coach').forEach(e=>e.classList.remove('coach'));
+  if(GM==='play')return;
+  if(LEARN.tour){const tt=PILOT_TOUR[LEARN.ti];$('#coachK').textContent='LESSON';
+    $('#coachText').innerHTML=`<b>${tt[1]}</b> <span class="lbl">${LEARN.ti+1} / ${PILOT_TOUR.length}</span><div>${tt[2]}</div><div class="row" style="margin-top:8px"><button class="btn" data-act="tour">Next</button><button class="btn" data-act="tourend">Skip the tour</button></div>`;
+    $('#coachSayWrap').hidden=true;const el=$(tt[0]);if(el)el.classList.add('coach');return;}
+  $('#coachK').textContent=GM==='learn'?'LESSON':'COACH';
+  const s=coachStep();
+  let html=s.t||'';
+  if(GM==='learn'){const w=whyFor(s);if(w)html+=`<div class="why">Why: ${w}</div>`;
+    if(LEARN.hold)html+='<div class="hold">⏸ The sim is paused until you do this. <button class="btn" data-act="skipstep" style="padding:3px 8px">Skip</button></div>';
+    else if(LEARN.slow<1)html+='<div class="hold">🐢 Slow motion</div>';}
+  $('#coachText').innerHTML=html;
+  $('#coachSayWrap').hidden=!s.say;if(s.say)$('#coachSay').textContent=s.say;
+  if(s.sel){const el=$(s.sel);if(el)el.classList.add('coach');}
+}
+
+/* =====================================================================
+   PILOT: drawing
+   ===================================================================== */
+const DPR=()=>Math.min(2,window.devicePixelRatio||1);
+function fit(cv){const r=cv.getBoundingClientRect(),d=DPR(),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}const x=cv.getContext('2d');x.setTransform(w/400,0,0,h/400,0,0);return x;}
+function L(x,a,b,c,d){x.beginPath();x.moveTo(a,b);x.lineTo(c,d);x.stroke();}
+function T(x,s,a,b,col,size=12,align='center'){x.fillStyle=col;x.font=`${size}px ${MONO}`;x.textAlign=align;x.textBaseline='middle';x.fillText(s,a,b);}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
+
+function drawFMA(x,p){
+  x.strokeStyle='#7d8790';x.lineWidth=1;for(const a of [80,160,240,320])L(x,a,4,a,58);
+  const ra=p.ra,flash=Math.floor(simT*2)%2===0;
+  let c1='',c1c=C.g,box=false;
+  if(!p.landed&&p.lever>=44.5&&(p.toArmed||!p.onGround)){c1='MAN TOGA';c1c=C.w;box=true;}
+  else if(!p.landed&&p.lever>=34.5&&(p.toArmed||!p.onGround)){c1=ra<THR_RED+300||p.onGround?'MAN FLX +'+SPD.FLX:'MAN MCT';c1c=C.w;box=true;}
+  else if(p.athrActive)c1=p.athrMode;
+  if(!p.onGround&&p.athr&&p.lever>25.5&&ra>THR_RED&&!p.landed){c1=flash?'LVR CLB':'';c1c=C.w;box=flash;}
+  if(c1){T(x,c1,40,18,c1c,12);if(box){x.strokeStyle=C.w;x.strokeRect(4,8,72,20);}}
+  if(p.lat==='LAND'||p.lat==='ROLL OUT'){T(x,p.vert==='FLARE'?'FLARE':p.vert==='ROLL OUT'?'ROLL OUT':'LAND',160,18,C.g,13);}
+  else{
+    let v=p.vert;if(v==='V/S')v='V/S '+(p.fcu.vs>=0?'+':'')+p.fcu.vs;
+    if(v)T(x,v,120,18,C.g,13);
+    if(p.lat)T(x,p.lat,200,18,C.g,13);
+  }
+  const va=p.gsArmed?'G/S':['OP CLB','OP DES','V/S'].includes(p.vert)?'ALT':'';
+  if(va)T(x,va,120,36,C.c,12);
+  if(p.locArmed)T(x,'LOC',200,36,C.c,12);
+  if(p.gsArmed||['G/S*','G/S','LAND','FLARE'].includes(p.vert)){T(x,'CAT 1',280,18,C.w,12);if(p.ap)T(x,'SINGLE',280,36,C.w,11);}
+  if(p.ap)T(x,'AP1',360,14,C.w,12);
+  if(p.fdOn)T(x,'1 FD 2',360,30,C.w,12);
+  if(p.athr&&!p.landed)T(x,'A/THR',360,46,p.athrActive?C.w:C.c,12);
+}
+
+function drawPFD(){
+  const x=fit($('#cPFD')),p=P;x.fillStyle='#000';x.fillRect(0,0,400,400);
+  const cx=190,cy=212,PPD=5;
+  drawFMA(x,p);
+  // attitude sphere
+  x.save();rr(x,108,92,164,240,16);x.clip();
+  x.translate(cx,cy);x.rotate(-p.bank*D2R);
+  const off=p.pitch*PPD;
+  x.fillStyle=C.sky;x.fillRect(-300,off-600,600,600);x.fillStyle=C.earth;x.fillRect(-300,off,600,600);
+  x.strokeStyle=C.w;x.lineWidth=2;L(x,-300,off,300,off);
+  x.lineWidth=1.4;
+  for(let d=-30;d<=30;d+=2.5){if(!d)continue;const y=off-d*PPD;if(y<-115||y>105)continue;const w=d%10===0?30:d%5===0?16:6;L(x,-w,y,w,y);if(d%10===0){T(x,String(Math.abs(d)),-w-11,y,C.w,10);T(x,String(Math.abs(d)),w+11,y,C.w,10);}}
+  x.restore();
+  // bank scale
+  x.strokeStyle=C.w;x.lineWidth=1.5;const BR=112;
+  for(const a of [-45,-30,-20,-10,10,20,30,45]){const s=Math.sin(a*D2R),c=Math.cos(a*D2R),l=Math.abs(a)>=30?10:6;L(x,cx+BR*s,cy-BR*c,cx+(BR+l)*s,cy-(BR+l)*c);}
+  x.fillStyle=C.y;x.beginPath();x.moveTo(cx,cy-BR);x.lineTo(cx-7,cy-BR-11);x.lineTo(cx+7,cy-BR-11);x.closePath();x.fill();
+  x.save();x.translate(cx,cy);x.rotate(-p.bank*D2R);x.strokeStyle=C.y;x.lineWidth=2;x.beginPath();x.moveTo(0,-BR+2);x.lineTo(-7,-BR+13);x.lineTo(7,-BR+13);x.closePath();x.stroke();x.restore();
+  // FD
+  const showFD=p.fdOn&&(p.vert||p.lat)&&!(p.onGround&&!p.toArmed)&&!p.landed;
+  if(showFD){x.strokeStyle=C.g;x.lineWidth=2.5;const fy=cy-clamp(p.fd.p*PPD*1.4,-60,60),fx=cx+clamp(p.fd.r*2.4,-60,60);L(x,cx-55,fy,cx+55,fy);L(x,fx,cy-55,fx,cy+55);}
+  // aircraft symbol
+  x.fillStyle='#000';x.strokeStyle=C.y;x.lineWidth=2.5;
+  for(const s of [-1,1]){x.fillRect(cx+s*72-(s>0?0:-0),cy-3,s*-44,6);x.beginPath();x.moveTo(cx+s*72,cy-3);x.lineTo(cx+s*28,cy-3);x.lineTo(cx+s*28,cy+12);x.lineTo(cx+s*34,cy+12);x.lineTo(cx+s*34,cy+3);x.lineTo(cx+s*72,cy+3);x.closePath();x.fill();x.stroke();}
+  x.fillRect(cx-4,cy-4,8,8);x.strokeRect(cx-4,cy-4,8,8);
+  // RA
+  if(!p.onGround&&p.ra<2500)T(x,String(Math.round(p.ra/10)*10),cx,cy+100,p.ra<200?C.a:C.g,16);
+  // LS
+  if(p.ls){
+    const r=rwy(p),dist=r.along+RWY_LEN+0.2,ang=Math.atan2(r.xtk,Math.max(dist,0.1))*R2D,locD=clamp(-ang/0.8,-2.2,2.2);
+    const gsD=clamp((Math.atan2(p.alt-ELEV-50,Math.max(r.along,0.05)*6076)*R2D-3)/0.35,-2.2,2.2);
+    x.fillStyle=C.w;for(const d of [-2,-1,1,2]){x.beginPath();x.arc(cx+d*22,cy+120,2.5,0,7);x.fill();x.beginPath();x.arc(282,cy+d*22,2.5,0,7);x.fill();}
+    if(r.along>-RWY_LEN&&Math.abs(ang)<35){x.fillStyle=C.m;const dx=cx+locD*22;x.beginPath();x.moveTo(dx-7,cy+120);x.lineTo(dx,cy+115);x.lineTo(dx+7,cy+120);x.lineTo(dx,cy+125);x.closePath();x.fill();}
+    if(r.along>0.2&&r.along<20){x.fillStyle=C.m;const dy=cy-gsD*22;x.beginPath();x.moveTo(282,dy-7);x.lineTo(287,dy);x.lineTo(282,dy+7);x.lineTo(277,dy);x.closePath();x.fill();}
+    T(x,'ILS22',40,350,C.m,12);T(x,CRS22M+'°',40,364,C.m,12);T(x,`${Math.max(0,r.along).toFixed(1)} NM`,40,378,C.m,11);
+  }
+  // speed tape
+  const ias=Math.max(30,p.ias),PXK=4,top=92,bot=332,tx=22,tw=58;
+  const ys=v=>cy-(v-ias)*PXK;
+  x.save();x.beginPath();x.rect(tx,top,tw,bot-top);x.clip();x.fillStyle=C.gray;x.fillRect(tx,top,tw,bot-top);
+  x.strokeStyle=C.w;x.lineWidth=1.5;
+  for(let v=Math.floor((ias-35)/10)*10;v<=ias+35;v+=10){if(v<30)continue;const y=ys(v);L(x,tx+tw-9,y,tx+tw,y);if(v%20===0)T(x,String(v),tx+tw-13,y,C.w,13,'right');}
+  if(!p.onGround){const vm=vmax(p);for(let v=vm;v<vm+60;v+=3){x.fillStyle=Math.floor((v-vm)/3)%2?'#000':C.r;x.fillRect(tx+tw-6,ys(v+3),6,PXK*3);}
+    const vl=vls(p),vp=Math.round(CONF[confKey(p)].vs*1.1);x.fillStyle=C.a;x.fillRect(tx+tw-4,ys(vl),3,(vl-vp)*PXK);
+    for(let v=vp;v>vp-30;v-=3){x.fillStyle=Math.floor((vp-v)/3)%2?'#000':C.a;x.fillRect(tx+tw-6,ys(v),6,PXK*3);}
+    x.fillStyle=C.r;x.fillRect(tx+tw-6,ys(vp-30),6,200);}
+  x.restore();
+  // speed markers
+  if(p.onGround&&!p.landed){const y1=ys(SPD.V1),yr=ys(SPD.VR);if(y1>top&&y1<bot)T(x,'1',tx+tw+8,y1,C.c,13);if(yr>top&&yr<bot){x.strokeStyle=C.c;x.beginPath();x.arc(tx+tw+8,yr,4,0,7);x.stroke();}}
+  if(!p.onGround){const mk=p.flapLever===1?['S',SPD.S]:(p.flapLever===2||p.flapLever===3)?['F',SPD.F]:p.flapLever===0?['•',SPD.GD]:null;
+    if(mk){const y=ys(mk[1]);if(y>top&&y<bot){if(mk[0]==='•'){x.strokeStyle=C.g;x.lineWidth=2;x.beginPath();x.arc(tx+tw+7,y,4,0,7);x.stroke();}else T(x,mk[0],tx+tw+8,y,C.g,13);}}}
+  // target speed
+  const tgt=p.vert==='SRS'?SPD.V2:p.athrActive||p.ap||p.fdOn?selSpd(p):null,tcol=p.vert==='SRS'?C.m:C.c;
+  if(tgt&&(p.toArmed||!p.onGround)){const y=ys(tgt);if(y<top)T(x,String(Math.round(tgt)),tx+tw/2,top-8,tcol,12);else if(y>bot)T(x,String(Math.round(tgt)),tx+tw/2,bot+9,tcol,12);else{x.fillStyle=tcol;x.beginPath();x.moveTo(tx+tw,y);x.lineTo(tx+tw+10,y-6);x.lineTo(tx+tw+10,y+6);x.closePath();x.fill();}}
+  // trend + reference
+  const tr=p.iasRate*10;if(Math.abs(tr)>2&&!p.onGround){x.strokeStyle=C.y;x.lineWidth=2;const ye=clamp(cy-tr*PXK,top,bot);L(x,tx+tw-12,cy,tx+tw-12,ye);x.beginPath();x.moveTo(tx+tw-16,ye+(tr>0?6:-6));x.lineTo(tx+tw-12,ye);x.lineTo(tx+tw-8,ye+(tr>0?6:-6));x.stroke();}
+  x.strokeStyle=C.y;x.lineWidth=2.5;L(x,tx,cy,tx+tw+2,cy);x.fillStyle=C.y;x.beginPath();x.moveTo(tx+tw+2,cy);x.lineTo(tx+tw+12,cy-6);x.lineTo(tx+tw+12,cy+6);x.closePath();x.fill();
+  // altitude tape
+  const ax=300,aw=46,APX=0.2,ya=a=>cy-(a-p.alt)*APX;
+  x.save();x.beginPath();x.rect(ax,top,aw,bot-top);x.clip();x.fillStyle=C.gray;x.fillRect(ax,top,aw,bot-top);
+  x.strokeStyle=C.w;x.lineWidth=1.5;
+  for(let a=Math.floor((p.alt-700)/100)*100;a<=p.alt+700;a+=100){const y=ya(a);L(x,ax,y,ax+(a%500===0?9:5),y);if(a%500===0)T(x,String(Math.round(a/100)),ax+28,y,C.w,13);}
+  if(p.ra<700){x.fillStyle='#b8322a';x.fillRect(ax,ya(ELEV),aw,200);}
+  const ytg=ya(p.fcu.alt);if(ytg>top+10&&ytg<bot-10){x.fillStyle=C.c;x.fillRect(ax,ytg-1,10,2);T(x,String(p.fcu.alt),ax+28,ytg-9,C.c,10);}
+  x.restore();
+  if(ytg<=top+10)T(x,String(p.fcu.alt),ax+aw/2,top-8,C.c,13);else if(ytg>=bot-10)T(x,String(p.fcu.alt),ax+aw/2,bot+9,C.c,13);
+  x.fillStyle='#000';x.fillRect(ax-2,cy-15,aw+6,30);x.strokeStyle=C.y;x.lineWidth=2;x.strokeRect(ax-2,cy-15,aw+6,30);
+  const hund=Math.floor(p.alt/100),drum=String(((Math.round(p.alt/20)*20)%100+100)%100).padStart(2,'0');
+  T(x,String(hund),ax+29,cy,C.g,17,'right');T(x,drum,ax+31,cy,C.g,12,'left');
+  // VS
+  const vx=352;x.fillStyle=C.gray;x.beginPath();x.moveTo(vx,112);x.lineTo(vx+22,112);x.lineTo(vx+30,cy-30);x.lineTo(vx+30,cy+30);x.lineTo(vx+22,312);x.lineTo(vx,312);x.closePath();x.fill();
+  const fv=v=>{const a=Math.abs(v),s=Math.sign(v);return s*(a<=1000?a*0.05:a<=2000?50+(a-1000)*0.025:75+(Math.min(a,6000)-2000)*0.0055);};
+  x.strokeStyle=C.w;x.lineWidth=1.2;for(const v of [-6000,-2000,-1500,-1000,-500,500,1000,1500,2000,6000]){const y=cy-fv(v);L(x,vx,y,vx+(Math.abs(v)%1000===0?8:5),y);if([1000,2000,6000].includes(Math.abs(v)))T(x,String(Math.abs(v)/1000),vx-6,y,C.w,10);}
+  const vcol=Math.abs(p.vs)>6000||(p.ra<1000&&p.vs<-2000&&!p.onGround)?C.a:C.g;x.strokeStyle=vcol;x.lineWidth=2.5;L(x,vx+45,cy,vx+3,cy-fv(p.vs));
+  if(Math.abs(p.vs)>=200){const y=cy-fv(p.vs)+(p.vs>0?-10:10);x.fillStyle='#000';x.fillRect(vx+2,y-7,22,14);T(x,String(Math.round(Math.abs(p.vs)/100)).padStart(2,'0'),vx+13,y,vcol,11);}
+  // heading tape
+  const hm=wrap360(p.hdg-VAR),hx=110,hw=160,hy=346,PXH=4;
+  x.save();x.beginPath();x.rect(hx,hy,hw,28);x.clip();x.fillStyle=C.gray;x.fillRect(hx,hy,hw,28);
+  x.strokeStyle=C.w;x.lineWidth=1.5;
+  for(let d=Math.floor((hm-24)/5)*5;d<=hm+24;d+=5){const sx=cx+(d-hm)*PXH,dd=wrap360(d);L(x,sx,hy,sx,hy+(dd%10===0?8:5));if(dd%10===0)T(x,String(Math.round(dd/10)),sx,hy+18,C.w,12);}
+  const tk=wrap360(p.trk-VAR),sxt=cx+angDiff(hm,tk)*PXH;x.strokeStyle=C.g;x.beginPath();x.moveTo(sxt,hy+1);x.lineTo(sxt+4,hy+6);x.lineTo(sxt,hy+11);x.lineTo(sxt-4,hy+6);x.closePath();x.stroke();
+  if(p.ls){const sc=cx+angDiff(hm,CRS22M)*PXH;x.strokeStyle=C.m;x.lineWidth=2;L(x,sc,hy,sc,hy+12);}
+  x.restore();
+  const dh=angDiff(hm,p.fcu.hdg);if(Math.abs(dh)<20){const sx=cx+dh*PXH;x.fillStyle=C.c;x.beginPath();x.moveTo(sx,hy);x.lineTo(sx-6,hy-9);x.lineTo(sx+6,hy-9);x.closePath();x.fill();}else T(x,hdgStr(p.fcu.hdg),dh<0?hx+18:hx+hw-18,hy-8,C.c,12);
+  x.strokeStyle=C.y;x.lineWidth=2.5;L(x,cx,hy-6,cx,hy+12);
+  // messages
+  if(p.tailstrike&&p.onGround)T(x,'TAILSTRIKE',cx,cy+60,C.r,14);
+  if(paused)T(x,'PAUSED',cx,cy-40,C.w,18);
+}
+
+function drawND(){
+  const x=fit($('#cND')),p=P;x.fillStyle='#000';x.fillRect(0,0,400,400);
+  const cx=200,cy=222,Rr=148,k=Rr/p.ndRange,h=p.hdg*D2R,hm=wrap360(p.hdg-VAR);
+  const toS=pt=>{const dx=pt.x-p.x,dy=pt.y-p.y,rx=dx*Math.cos(h)-dy*Math.sin(h),ry=dx*Math.sin(h)+dy*Math.cos(h);return[cx+rx*k,cy-ry*k];};
+  x.save();x.beginPath();x.arc(cx,cy,Rr,0,7);x.clip();
+  x.strokeStyle='#1d4a5e';x.lineWidth=1;x.beginPath();LAKE.forEach((q,i)=>{const[a,b]=toS(q);i?x.lineTo(a,b):x.moveTo(a,b);});x.closePath();x.fillStyle='#0a1a24';x.fill();x.stroke();
+  if(p.ls||p.locArmed||p.lat.indexOf('LOC')>=0||p.lat==='LAND'){const a=toS(THR22),b=toS({x:THR22.x+UX*20,y:THR22.y+UY*20});x.setLineDash([6,5]);x.strokeStyle=C.m;x.lineWidth=1.3;L(x,a[0],a[1],b[0],b[1]);x.setLineDash([]);}
+  const a=toS(THR04),b=toS(THR22);x.strokeStyle=C.w;x.lineWidth=4;L(x,a[0],a[1],b[0],b[1]);T(x,'LSGG',b[0]+18,b[1]-8,C.w,11,'left');
+  for(const n of NAV){const[s,t]=toS(n);x.strokeStyle=C.m;x.lineWidth=1.5;x.beginPath();for(let i=0;i<6;i++){const an=i*Math.PI/3;x[i?'lineTo':'moveTo'](s+6*Math.cos(an),t+6*Math.sin(an));}x.closePath();x.stroke();T(x,n.id,s+10,t-8,C.m,11,'left');}
+  x.restore();
+  x.strokeStyle=C.w;x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,Rr,0,7);x.stroke();
+  x.setLineDash([3,4]);x.beginPath();x.arc(cx,cy,Rr/2,0,7);x.stroke();x.setLineDash([]);
+  T(x,String(p.ndRange/2),cx-Rr/2*0.7-8,cy+Rr/2*0.7,C.c,11);
+  for(let d=0;d<360;d+=5){const an=(d-hm)*D2R,s=Math.sin(an),c=Math.cos(an),l=d%10===0?10:5;L(x,cx+Rr*s,cy-Rr*c,cx+(Rr-l)*s,cy-(Rr-l)*c);if(d%30===0)T(x,String(d/10),cx+(Rr-20)*s,cy-(Rr-20)*c,C.w,d%90===0?14:12);}
+  const sa=(p.fcu.hdg-hm)*D2R;x.fillStyle=C.c;x.save();x.translate(cx,cy);x.rotate(sa);x.beginPath();x.moveTo(0,-Rr);x.lineTo(-6,-Rr-10);x.lineTo(6,-Rr-10);x.closePath();x.fill();x.restore();
+  const ta=(wrap360(p.trk-VAR)-hm)*D2R;x.strokeStyle=C.g;x.lineWidth=2;x.save();x.translate(cx,cy);x.rotate(ta);x.beginPath();x.moveTo(0,-Rr+2);x.lineTo(5,-Rr+9);x.lineTo(0,-Rr+16);x.lineTo(-5,-Rr+9);x.closePath();x.stroke();x.restore();
+  x.fillStyle=C.y;x.beginPath();x.moveTo(cx,cy-Rr-14);x.lineTo(cx-5,cy-Rr-4);x.lineTo(cx+5,cy-Rr-4);x.closePath();x.fill();
+  x.strokeStyle=C.y;x.lineWidth=3;L(x,cx,cy-14,cx,cy+18);L(x,cx-16,cy-2,cx+16,cy-2);L(x,cx-6,cy+14,cx+6,cy+14);
+  T(x,'GS',8,14,C.w,12,'left');T(x,String(Math.round(p.gs)),30,14,C.g,15,'left');T(x,'TAS',70,14,C.w,12,'left');T(x,String(Math.round(p.ias*(1+p.alt/1000*0.017))),100,14,C.g,15,'left');
+  T(x,`${WIND.dir}°/${WIND.spd}`,8,32,C.g,12,'left');
+  const wa=(WIND.dir+180-p.hdg)*D2R;x.save();x.translate(26,56);x.rotate(wa);x.strokeStyle=C.g;x.lineWidth=2;L(x,0,10,0,-10);x.beginPath();x.moveTo(-4,-5);x.lineTo(0,-10);x.lineTo(4,-5);x.stroke();x.restore();
+  if(p.ls){T(x,'ILS22',392,14,C.m,13,'right');T(x,`CRS ${CRS22M}°`,392,32,C.m,12,'right');}
+  T(x,`HDG ${hdgStr(hm)}`,392,388,C.g,12,'right');
+}
+
+function drawEWD(){
+  const x=fit($('#cEWD')),p=P;x.fillStyle='#000';x.fillRect(0,0,400,400);
+  const th=n=>(150+clamp(n,0,110)/110*230)*D2R;
+  for(const ex of [80,220]){
+    const cy=82,R0=52;x.strokeStyle=C.w;x.lineWidth=2;x.beginPath();x.arc(ex,cy,R0,th(0),th(100));x.stroke();x.strokeStyle=C.r;x.beginPath();x.arc(ex,cy,R0,th(100),th(110));x.stroke();
+    x.strokeStyle=C.w;x.lineWidth=1.5;for(const m of [50,60,70,80,90,100]){const a=th(m);L(x,ex+R0*Math.cos(a),cy+R0*Math.sin(a),ex+(R0-7)*Math.cos(a),cy+(R0-7)*Math.sin(a));}
+    T(x,'5',ex+(R0-16)*Math.cos(th(50)),cy+(R0-16)*Math.sin(th(50)),C.w,10);T(x,'10',ex+(R0-16)*Math.cos(th(100)),cy+(R0-16)*Math.sin(th(100)),C.w,10);
+    const a=th(p.n1);x.strokeStyle=C.g;x.lineWidth=3;L(x,ex,cy,ex+(R0-2)*Math.cos(a),cy+(R0-2)*Math.sin(a));
+    x.strokeStyle=C.w;x.lineWidth=1;x.strokeRect(ex+2,cy+8,46,20);T(x,p.n1.toFixed(1),ex+45,cy+18,C.g,15,'right');
+    T(x,String(Math.round(380+(p.n1-20)*4.2)),ex+20,cy+62,C.g,14);
+    T(x,String(Math.round((280+Math.pow(Math.max(p.n1-20,0),2)*0.52)/10)*10),ex+20,cy+90,C.g,13);
+  }
+  T(x,'N1',150,80,C.w,12);T(x,'%',150,94,C.c,11);T(x,'EGT',150,140,C.w,12);T(x,'°C',150,154,C.c,11);T(x,'FF',150,168,C.w,12);T(x,'KG/H',150,182,C.c,10);
+  const lim=p.lever>=44.5?['TOGA',92]:p.lever>=34.5?[p.onGround||p.ra<THR_RED?'FLX':'MCT',87]:['CL',85];
+  T(x,lim[0],320,24,C.c,13,'left');T(x,lim[1].toFixed(1),392,24,C.g,15,'right');if(lim[0]==='FLX')T(x,'+'+SPD.FLX+'°C',392,44,C.c,12,'right');
+  T(x,`FOB : ${Math.round(p.fob/10)*10} KG`,10,206,C.w,12,'left');
+  // flaps
+  const fx=300,fy=200;T(x,'S',fx-46,fy+18,C.w,12);T(x,'F',fx+60,fy+18,C.w,12);
+  x.fillStyle=C.w;x.fillRect(fx-6,fy-4,22,8);
+  const sl=[0,1,1,2,3][Math.round(p.flapPos)]/3,fl=[0,p.conf1F?1:0,2,3,4][Math.round(p.flapPos)]/4,moving=Math.abs(p.flapPos-p.flapLever)>0.02;
+  x.strokeStyle=moving?C.c:C.g;x.lineWidth=3;L(x,fx-6,fy,fx-6-30*Math.cos(sl*0.6),fy+30*Math.sin(sl*0.6)*0.8+2);L(x,fx+16,fy,fx+16+34*Math.cos(fl*0.7),fy+34*Math.sin(fl*0.7)*0.8+2);
+  const ck=confKey(p);if(p.flapLever||p.flapPos>0.05)T(x,ck==='FULL'?'FULL':ck,fx+5,fy+36,moving?C.c:C.g,14);
+  x.strokeStyle='#59636d';x.lineWidth=1;L(x,8,232,392,232);
+  // warnings & memo
+  let y=252;
+  for(const w of p.warn){T(x,w.t,10,y,w.l==='r'?C.r:C.a,12,'left');y+=18;if(w.sub){T(x,'  '+w.sub,10,y,C.c,12,'left');y+=18;}}
+  const memo=(p.onGround&&!p.landed&&!p.toArmed)?['T.O',toMemo(p)]:(!p.onGround&&p.ra<2000&&p.vs<0&&(p.gearLever==='DOWN'||p.ra<1500))?['LDG',ldgMemo(p)]:null;
+  if(memo&&y<380){T(x,memo[0],10,y,C.w,12,'left');x.strokeStyle=C.w;L(x,10,y+8,10+memo[0].length*7.5,y+8);
+    let yy=y;for(const m of memo[1]){if(m.ok)T(x,m.okT||`${m.t} ${m.v}`,60,yy,C.g,12,'left');else{T(x,m.t,60,yy,C.w,12,'left');T(x,'.'.repeat(Math.max(2,14-m.t.length))+m.v,60+m.t.length*7.4,yy,C.c,12,'left');}yy+=17;}}
+  else if(!p.warn.length){const ms=[];if(p.splrArm&&!p.onGround)ms.push('GND SPLRS ARMED');if(p.abActive||(!p.onGround&&p.autobrake!=='MAX'))ms.push('AUTO BRK '+p.autobrake);if(p.sb>0&&!p.onGround)ms.push('SPEED BRK');ms.forEach((m,i)=>T(x,m,260,252+i*18,C.g,12,'left'));}
+}
+
+/* =====================================================================
+   PILOT: DOM sync
+   ===================================================================== */
+function syncDom(){
+  const p=P;
+  $('#fSpd').value=String(p.fcu.spd);$('#fHdg').value=hdgStr(p.fcu.hdg);$('#fAlt').value=String(p.fcu.alt);$('#fVs').value=p.vert==='V/S'?(p.fcu.vs>=0?'+':'')+String(p.fcu.vs).padStart(4,'0'):(p.fcu.vs?String(p.fcu.vs):'-----');
+  $('#pbAP1').classList.toggle('on',p.ap);$('#pbATHR').classList.toggle('on',p.athr);
+  $('#pbLOC').classList.toggle('on',p.locArmed&&!p.gsArmed||p.lat==='LOC'||p.lat==='LOC*');$('#pbAPPR').classList.toggle('on',p.gsArmed||['G/S','G/S*','LAND','FLARE'].includes(p.vert));
+  $('#pbLS').classList.toggle('on',p.ls);$('#pbRNG').textContent='RNG '+p.ndRange;
+  $('#pbSPLR').classList.toggle('on',p.splrArm);$('#pbTOC').classList.toggle('on',p.toConfigOk&&p.onGround&&!p.toArmed);
+  for(const ab of ['LO','MED','MAX'])$('#ab'+ab).classList.toggle('on',p.autobrake===ab);
+  $('#mWarn').classList.toggle('lit',p.mw&&Math.floor(simT*2)%2===0);$('#mCaut').classList.toggle('lit',p.mc);
+  $$('[data-act^="flap:"]').forEach(b=>b.classList.toggle('sel',+b.dataset.act.split(':')[1]===p.flapLever));
+  $('#gearBtn').textContent=p.gearLever==='DOWN'?'GEAR ▼ DOWN':'GEAR ▲ UP';
+  $$('#gearInd span').forEach(s=>{s.className=p.gearPos>0.99?'dn':p.gearPos>0.01?'un':'';s.textContent=p.gearPos>0.99?'▼':p.gearPos>0.01?'UNLK':'';});
+  const tr=$('#thrTrack'),h=tr.clientHeight;$('#thrHandle').style.top=((45-p.lever)/65*h)+'px';
+  $('#rAct').textContent=fmtF(p.com1.act);$('#rSby').textContent=fmtF(p.com1.sby);
+  $('#sbRange').value=String(p.sb);
+  $('#pfdNote').textContent=p.ap?'AP1 ON':'MANUAL · NORMAL LAW';
+  const tab=phaseTab();if(tab!==CK.auto){CK.auto=tab;CK.tab=tab;renderChk();}
+}
+function renderCrew(){
+  const el=$('#crew');
+  if(ROLE==='FO'){$('#crewTitle').textContent='Your callouts (PM)';
+    el.innerHTML=CO.map(c=>{const st=Crew.co[c.id]||'idle';return`<button class="btn ${st==='open'?'open':st==='done'?'done':''}" data-act="co:${c.id}">${esc(c.label)}</button>`;}).join('');}
+  else{$('#crewTitle').textContent='Call to your First Officer';
+    el.innerHTML=[['gearup','Gear up'],['geardn','Gear down'],['f0','Flaps 0'],['f1','Flaps 1'],['f2','Flaps 2'],['f3','Flaps 3'],['f4','Flaps full']].map(([a,b])=>`<button class="btn" data-act="cmd:${a}">${b}</button>`).join('');}
+}
+function renderChk(){
+  $('#chkTabs').innerHTML=Object.entries(CHK).map(([k,v])=>`<button class="btn ${k===CK.tab?'sel':''} ${chkComplete(k)?'ok':''}" data-act="ctab:${k}">${esc(v.n)}</button>`).join('');
+  const c=CHK[CK.tab];
+  $('#chkList').innerHTML=`<h4>${esc(c.n.toUpperCase())}</h4>`+c.items.map((it,i)=>it?`<button data-act="citem:${i}" class="${CK.done[CK.tab+'|'+it[0]]?'c':CK.fail===CK.tab+'|'+it[0]?'x':''}"><span>${esc(it[0])}</span><span class="d"></span><span>${esc(it[1])}</span></button>`:`<div class="line">— — — — — — below the line — — — — — —</div>`).join('');
+}
+function buildKb(){$('#kb').innerHTML=Object.entries(UNITS).map(([f,n])=>`<button data-act="kb:${f}"><span>${esc(n)}</span><span>${fmtF(+f)}</span></button>`).join('');}
+
+/* =====================================================================
+   PILOT: start / finish
+   ===================================================================== */
+function initPilotSim(scn){
+  SCN=scn;P=newPilot(scn);simT=0;radT=0;TIMERS=[];paused=false;SC={total:0,items:[]};
+  Object.assign(R,{pending:null,flags:{},cleared:false,landClr:false,missed:null,clr:{},rbHint:null,calledReady:false,calledIn:false});
+  Crew.hands=!humanCPT();Crew.gPitch=0;Crew.done={};Crew.exp=[];Crew.co={};
+  CK={tab:'bto',done:{}};
+  $('#log').innerHTML='';
+  if(scn==='app'){for(const id of['bto','ato'])CHK[id].items.filter(Boolean).forEach(i=>CK.done[id+'|'+i[0]]=1);R.flags={base:1,desc:1,depCalled:1,arr:1,ready:1,dep:1};R.cleared=true;}
+  if(NET.on&&!humanCPT()&&!humanFO())for(const id of Object.keys(CHK))CHK[id].items.filter(Boolean).forEach(i=>CK.done[id+'|'+i[0]]=1);
+  sysMsg(scn==='to'?`Lined up on runway 22 at Geneva. COM1 is still on Ground (121.680). ATIS: wind 230/5, QNH ${QNH}, runway 22 in use.`:`On base leg east of Geneva at 5000 ft, heading 130, talking to Geneva Arrival (136.255).`);
+  if(scn==='app'&&!humanATC())out('radio','ARR',`${CALL}, turn right heading 130`,'atc');
+  if(scn==='app'&&humanATC())R.calledIn=false;
+}
+function showPilotUI(role){
+  ROLE=role;MODE='pilot';show('pilot');
+  $('#pTitle').textContent=`SWR47K · A320 · ${role==='CPT'?'Captain (PF)':'First Officer (PM)'}${NET.on?' · multiplayer '+NET.code:''}`;
+  $('#pMode').textContent=modeLabel();$('#pMode').classList.toggle('play',GM==='play');
+  $('#metar').textContent=metar();$('#intBtn').hidden=!NET.on;
+  buildKb();renderCrew();renderChk();
+  $('#micLine').textContent=NET.on?'Hold TALK (T) for the radio, INTERCOM (Y) to talk to the other pilot.':(!MIC.ok?'Voice input is not available here. Type your transmission and press Send.':GM==='play'?'Hold TALK (or T) and speak. Use standard phraseology — nobody will tell you what to say.':'Hold the button (or the T key) and speak.');
+  LEARN.tour=GM==='learn'&&!NET.on;LEARN.ti=0;LEARN.hold=false;LEARN.slow=1;LEARN.skip=null;
+  if(P)renderCoach();actx();
+}
+function startPilot(role){
+  ROLE=role;GM=readGM();FO_RADIO=$('#foRadio').checked;
+  initPilotSim($('#scnApp').checked?'app':'to');showPilotUI(role);
+}
+function humanTick(p,f){
+  if(!userRadio()&&!R.calledReady&&p.onGround&&!p.landed&&radT>4){R.calledReady=true;transmit(`Geneva Tower, ${CALL}, ready for departure runway 22`,true);}
+  if(!userRadio()&&!R.calledIn&&!p.onGround&&SCN==='app'&&radT>4){R.calledIn=true;transmit(`Geneva Arrival, ${CALL}, 5000 feet, heading 130`,true);}
+  if(p.landed&&p.ias<30&&!f.vac2){f.vac2=1;later(8,finishPilot);}
+}
+function humanClearance(a,cmds){
+  const rb=[];const hasFreq=cmds.some(c=>c.k==='FREQ');
+  for(const c of cmds){
+    if(c.k==='HDG'){const h=c.v===0?360:c.v;rb.push(`${c.dir==='L'?'left':c.dir==='R'?'right':'fly'} heading ${hdgStr(h)}`);setClr({hdg:h});}
+    if(c.k==='ALT'){const below=c.v<=TA,w=c.v>P.alt?'climb':'descend';rb.push(below?`${w} altitude ${c.v} feet${c.qnh?', QNH '+QNH:''}`:`${w} flight level ${c.v/100}`);setClr({alt:c.v});}
+    if(c.k==='SPD'){rb.push(`speed ${c.v} knots`);R.clr.spd=c.v;if(!humanCPT())later(1.5,()=>{P.fcu.spd=c.v;});}
+    if(c.k==='ILS'){rb.push('cleared ILS approach runway 22');setClr({ils:true});}
+    if(c.k==='LAND'){rb.push('runway 22, cleared to land');R.landClr=true;}
+    if(c.k==='TKOF'){rb.push('runway 22, cleared for takeoff');R.cleared=true;}
+    if(c.k==='LUW'){rb.push('lining up runway 22');}
+    if(c.k==='GA'){rb.push('going around');}
+    if(c.k==='FREQ'){rb.push(`${UNITS[c.v]?USHORT[c.v].replace('TWR','Tower').replace('DEP','Departure').replace('ARR','Arrival').replace('GND','Ground')+' ':''}${fmtF(c.v)}`);if(!userRadio())later(3,()=>{P.com1.sby=P.com1.act;P.com1.act=c.v;});}
+    if(c.k==='DEP'&&!hasFreq){rb.push('Departure 119.530');if(!userRadio())later(3,()=>{P.com1.act=F_.DEP;});}
+  }
+  if(!rb.length)return;
+  let t=rb.join(', ');t=t[0].toUpperCase()+t.slice(1)+`, ${CALL}`;R.rbHint=t;
+  if(!userRadio())later(2.2,()=>transmit(t,true));
+}
+function finishPilot(){
+  if(!P||P.finished)return;
+  const p=P;p.done=true;p.finished=true;MODE='debrief';
+  if(NET.on&&NET.simAtc){SC.items.push(...A.items.map(i=>({pts:i.pts,txt:'ATC · '+i.txt})));SC.total+=A.score;}
+  for(const k of Object.keys(CHK))if(chkComplete(k)&&!SC.items.find(i=>i.txt.startsWith(CHK[k].n)))0;
+  $('#dKicker').textContent=`${ROLE==='CPT'?'Captain':'First Officer'} · ${SCN==='to'?'Full flight':'Approach'} · ${modeLabel()}`;
+  $('#dTitle').textContent=p.crashed?'Accident':'Flight complete';
+  $('#dSum').textContent=p.crashed?p.crashWhy:p.td?`Touchdown ${Math.round(p.td.vs)} fpm, ${Math.round(p.td.dist)} m past the threshold, ${Math.abs(p.td.off).toFixed(1)} m ${p.td.off>0?'right':'left'} of the centreline.`:'';
+  if(NET.on){$('#dKicker').textContent=`Multiplayer · ${NET.roster.map(r=>r.name+' ('+r.role+')').join(', ')}`;}
+  renderDebrief();
+  if(NET.on&&NET.host)netSend({t:'deb',kick:$('#dKicker').textContent,title:$('#dTitle').textContent,sum:$('#dSum').textContent,SC});
+}
+function renderDebrief(){$('#dScore').textContent=String(SC.total);$('#dList').innerHTML=SC.items.map(i=>`<li><span>${esc(i.txt)}</span><span class="${i.pts>=0?'p':'n'}">${i.pts>0?'+':''}${i.pts}</span></li>`).join('')||'<li><span>No scored events.</span><span></span></li>';show('debrief');}
+
+/* =====================================================================
+   ATC MODE
+   ===================================================================== */
+const AIRL=[['SWR','Swiss',['A20N','A21N','BCS3','A320'],'num'],['EZS','Topswiss',['A320','A20N','A319'],'alnum'],['EZY','Easy',['A320','A21N'],'alnum'],['DLH','Lufthansa',['A320','CRJ9'],'num'],['AFR','Airfrance',['A318','A320'],'num'],['BAW','Speedbird',['A320','A20N'],'num'],['KLM','KLM',['B738','E190'],'num'],['AUA','Austrian',['A320','E195'],'num'],['TAP','Air Portugal',['A20N','A21N'],'num'],['SAS','Scandinavian',['A20N'],'num'],['BEL','Beeline',['A320'],'num'],['ITY','Itarrow',['A20N'],'num']];
+const ENTRIES=[{brg:45,fl:110},{brg:345,fl:120},{brg:215,fl:100},{brg:280,fl:110},{brg:120,fl:130}];
+const A={list:[],t:0,ts:1,paused:false,sel:null,nextArr:3,nextDep:12,score:0,st:{landed:0,departed:0,conf:0,ga:0,lost:0},pairs:new Set(),range:30,seq:0,timers:[],voice:0,items:[]};
+function aLater(s,fn){A.timers.push({t:(A.rt||0)+s,fn});}
+function mkCs(){
+  const a=pick(AIRL);let sfx;
+  for(let i=0;i<20;i++){sfx=a[3]==='alnum'&&Math.random()<0.6?String(Math.floor(rand(1,99)))+pick('ABCDEFGHJKLMNPRSTUVWXYZ')+pick('ABCDEFGHJKLMNPRSTUVWXYZ'):String(Math.floor(rand(10,1999)));if(!A.list.some(x=>x.code===a[0]+sfx))break;}
+  return{code:a[0]+sfx,tel:a[1]+' '+sfx,type:pick(a[2]),voice:pick(['PIL','P2','P3'])};
+}
+function aScore(pts,txt){A.score+=pts;A.items.push({pts,txt});}
+function aLog(who,text,cls){out('atc',who,text,cls);}
+function pilotSay(a,text){out('radio',a.code,text,'fo',a.voice);}
+function spawnArr(){
+  const e=pick(ENTRIES),b=(e.brg+rand(-8,8))*D2R,d=27,cs=mkCs();
+  const pos={x:d*Math.sin(b),y:d*Math.cos(b)};for(const fl of[e.fl,e.fl+10,e.fl-10,e.fl+20,e.fl+30]){if(!A.list.some(o=>Math.hypot(o.x-pos.x,o.y-pos.y)<14&&Math.abs(o.alt-fl*100)<1000)){e.fl2=fl;break;}}const fl=e.fl2||e.fl+40;
+  const a={...cs,kind:'arr',x:pos.x,y:pos.y,alt:fl*100,ias:250,hdg:wrap360(e.brg+180),st:'air',tgt:{hdg:null,alt:fl*100,spd:250},turn:null,ils:false,loc:false,gs:false,land:false,hold:false,touched:false,qnh:false,trail:[],trailT:0,vs:0,id:++A.seq,born:A.t};
+  A.list.push(a);pilotSay(a,`Geneva Arrival, ${a.tel}, flight level ${fl}, inbound`);e.fl2=null;
+}
+function spawnDep(){
+  const n=A.list.filter(x=>x.kind==='dep'&&x.st==='wait').length,cs=mkCs();
+  const pt={x:THR22.x+UY*0.12+UX*(0.06+n*0.05),y:THR22.y-UX*0.12+UY*(0.06+n*0.05)};
+  const a={...cs,kind:'dep',...pt,alt:ELEV,ias:0,hdg:CRS22,st:'wait',tgt:{hdg:null,alt:5000,spd:250},turn:null,trail:[],trailT:0,vs:0,id:++A.seq,qnh:true,born:A.t};
+  A.list.push(a);pilotSay(a,`Geneva Tower, ${a.tel}, holding point runway 22, ready for departure`);
+}
+function rwyBusy(except){return A.list.some(o=>o!==except&&['lineup','roll','landroll'].includes(o.st));}
+function goAround(a,why){a.ils=a.loc=a.gs=a.land=false;a.tgt={hdg:CRS22,alt:5000,spd:200};a.turn=null;A.st.ga++;aScore(-50,`${a.code} went around (${why})`);pilotSay(a,`Geneva, ${a.tel}, going around, ${why}`);}
+function syncHuman(){
+  let h=A.list.find(a=>a.kind==='human');
+  if(!h){h={code:'SWR47K',tel:CALL,type:'A320',kind:'human',voice:'PIL',trail:[],trailT:0,id:++A.seq,tgt:{hdg:null,alt:5000,spd:250},born:A.t,qnh:true};A.list.push(h);}
+  const st=P.onGround?(P.landed?(P.ias>30?'landroll':'gnd'):(P.ias>30?'roll':'lineup')):'air';
+  Object.assign(h,{x:P.x,y:P.y,alt:P.alt,ias:P.onGround?P.ias:P.gs,hdg:P.trk,vs:P.vs,st,land:R.landClr,ils:!!R.clr.ils,loc:!P.onGround&&['LOC','LAND','FLARE'].includes(P.lat),gs:['G/S','LAND','FLARE'].includes(P.vert)});
+  if(R.clr.alt!==undefined)h.tgt.alt=R.clr.alt;h.tgt.hdg=R.clr.hdg!==undefined?R.clr.hdg+VAR:null;
+}
+function moveAc(a,dt){
+  if(a.kind==='human')return;
+  if(a.st==='wait'||a.st==='lineup')return;
+  const adv=(spd)=>{const tas=spd*(1+a.alt/1000*0.017)/3600;a.x+=tas*Math.sin(a.hdg*D2R)*dt;a.y+=tas*Math.cos(a.hdg*D2R)*dt;};
+  if(a.st==='roll'){a.ias=Math.min(a.ias+5.5*dt,165);adv(a.ias);if(a.ias>=150){a.st='air';a.tgt.hdg=a.tgt.hdg??null;}return;}
+  if(a.st==='landroll'){a.ias=Math.max(a.ias-4.5*dt,20);adv(a.ias);if(a.ias<=25){a.gone=true;A.st.landed++;aScore(100,`${a.code} landed`);}return;}
+  const r=rwy(a);let desired=a.tgt.hdg;
+  if(a.kind==='dep'&&a.alt<ELEV+900)desired=CRS22;
+  if(a.kind==='arr'&&!a.touched&&!a.hold&&Math.hypot(a.x,a.y)<13){a.hold=true;pilotSay(a,`${a.tel}, no further clearance, entering hold over present position`);}
+  if(a.ils){const ad=Math.abs(angDiff(a.hdg,CRS22));if(!a.loc){const lead=1.3*(1-Math.cos(Math.min(ad,90)*D2R))+0.1;if(r.along>2&&r.along<30&&ad<75&&Math.abs(r.xtk)<lead)a.loc=true;}
+    if(a.loc){desired=CRS22+clamp(-r.xtk*45,-30,30);a.turn=null;a.hold=false;}}
+  if(a.hold&&desired==null&&!a.loc)a.hdg=wrap360(a.hdg+3*dt);
+  else{
+    if(desired==null)desired=a.kind==='arr'?wrap360(Math.atan2(-a.x,-a.y)*R2D):CRS22;
+    let e=a.turn==='L'?-wrap360(a.hdg-desired):a.turn==='R'?wrap360(desired-a.hdg):angDiff(a.hdg,desired);
+    if(Math.abs(e)<3)a.turn=null;
+    a.hdg=wrap360(a.hdg+clamp(e,-3*dt,3*dt));
+  }
+  const prev=a.alt;let tAlt=a.tgt.alt;
+  if(a.loc){const gp=gpAlt(r.along);if(a.alt>=gp-150||a.gs){a.gs=true;tAlt=gp;}}
+  const rate=(a.gs?1500:tAlt>a.alt?2400:1800)/60;a.alt+=clamp(tAlt-a.alt,-rate*dt,rate*dt);a.vs=(a.alt-prev)/dt*60;
+  let tS=a.tgt.spd;if(a.alt<10000)tS=Math.min(tS,250);if(a.loc){if(r.along<5)tS=Math.min(tS,140);else if(r.along<10)tS=Math.min(tS,170);}if(a.kind==='dep'&&a.alt<ELEV+2500)tS=Math.min(tS,190);
+  a.ias+=clamp(tS-a.ias,-1.8*dt,1.5*dt);
+  adv(a.ias);
+  if(a.kind==='arr'&&a.loc&&r.along<0.06){
+    if(!a.gs||a.alt>gpAlt(0)+250)goAround(a,'unstable, too high');
+    else if(a.land&&!rwyBusy(a)){a.st='landroll';a.alt=ELEV;a.hdg=CRS22;}
+    else goAround(a,a.land?'runway occupied':'no landing clearance');
+  }
+  if(a.kind==='arr'&&a.ils&&a.loc&&!a.gs&&r.along<4&&r.along>0.2)goAround(a,'too high for the glide slope');
+  if(Math.hypot(a.x,a.y)>36){a.gone=true;A.st.lost++;aScore(-100,`${a.code} left the sector ${a.kind==='dep'?'without a handoff':'still unworked'}`);}
+}
+function atcTick(dt,frozen){
+  A.rt=(A.rt||0)+dt;
+  for(const t of A.timers.filter(t=>t.t<=A.rt)){A.timers.splice(A.timers.indexOf(t),1);t.fn();}
+  if(frozen)return;
+  A.t+=dt;if(NET.on&&P)syncHuman();
+  if(A.t>=A.nextArr){if(A.list.filter(a=>a.kind==='arr').length<5)spawnArr();A.nextArr=A.t+rand(GM!=='play'?140:95,GM!=='play'?200:150);}
+  if(A.t>=A.nextDep){if(A.list.filter(a=>a.kind==='dep'&&a.st==='wait').length<3)spawnDep();A.nextDep=A.t+rand(GM!=='play'?150:90,GM!=='play'?220:150);}
+  for(const a of A.list){moveAc(a,dt);a.trailT+=dt;if(a.trailT>4&&a.st==='air'){a.trailT=0;a.trail.push({x:a.x,y:a.y});if(a.trail.length>6)a.trail.shift();}}
+  const air=A.list.filter(a=>a.st==='air'&&!a.gone);const now=new Set();
+  for(let i=0;i<air.length;i++)for(let j=i+1;j<air.length;j++){const a=air[i],b=air[j],d=Math.hypot(a.x-b.x,a.y-b.y),lim=a.loc&&b.loc?2.5:3;
+    if(d<lim&&Math.abs(a.alt-b.alt)<1000){const k=[a.id,b.id].sort().join('-');now.add(k);if(!A.pairs.has(k)){A.st.conf++;aScore(-150,`Separation lost: ${a.code} / ${b.code} (${d.toFixed(1)} NM, ${Math.round(Math.abs(a.alt-b.alt))} ft)`);aLog('STCA',`${a.code} / ${b.code} — ${d.toFixed(1)} NM, ${Math.round(Math.abs(a.alt-b.alt))} ft`,'bad');crc();}}}
+  A.pairs=now;A.conflict=new Set([...now].flatMap(k=>k.split('-').map(Number)));
+  A.list=A.list.filter(a=>!a.gone);
+  if(A.sel&&!A.list.find(a=>a.id===A.sel))A.sel=null;
+}
+/* ---------- ATC instructions: parse + execute */
+function csRegex(a){const parts=a.code.slice(3).split('').map(c=>c.toLowerCase());return new RegExp('\\b'+a.tel.split(' ')[0].toLowerCase()+'\\s*'+parts.join('\\s*')+'\\b');}
+function parseAtc(text){
+  const n=normalize(text);
+  const a=A.list.find(x=>csRegex(x).test(n));
+  const cmds=[];let m;
+  if((m=n.match(/\b(?:turn )?(left|right)? ?heading (\d{1,3})\b/)))cmds.push({k:'HDG',dir:m[1]==='left'?'L':m[1]==='right'?'R':null,v:+m[2]});
+  if((m=n.match(/\b(climb|descend)?(?: and maintain)? ?(altitude|flight level) (\d{1,5})\b/))){let v=+m[3];const fl=m[2]==='flight level';if(fl&&v<1000)v*=100;cmds.push({k:'ALT',v,fl,qnh:/qnh/.test(n)});}
+  if((m=n.match(/\b(reduce|increase|maintain)? ?speed (\d{2,3})\b/)))cmds.push({k:'SPD',v:+m[2]});
+  if(/cleared (for )?(the )?(ils|approach)|ils approach|cleared ils/.test(n)&&!/cleared to land/.test(n))cmds.push({k:'ILS'});
+  if(/cleared to land/.test(n))cmds.push({k:'LAND'});
+  if(/line up/.test(n))cmds.push({k:'LUW'});
+  if(/cleared (for )?takeoff/.test(n))cmds.push({k:'TKOF'});
+  if(/contact (geneva )?departure|departure 119/.test(n))cmds.push({k:'DEP'});
+  if(/go around/.test(n))cmds.push({k:'GA'});
+  if((m=n.match(/\b(1[1-3]\d\.\d{1,3})\b/)))cmds.push({k:'FREQ',v:Math.round(parseFloat(m[1])*1000)});
+  return{a,cmds,n};
+}
+function atcTransmit(text,voice){
+  if(NET.on&&!NET.host){toHost({t:'atc',text,voice:!!voice});return;}
+  out('radio',NET.on?'ATC':'YOU',text,'you',NET.on&&!voice?'ATC':null);
+  if(!NET.on)tone(1800,0.04,'sine',0.04);
+  const{a,cmds}=parseAtc(text);
+  if(a&&a.kind==='human'){if(!cmds.length)return;A.sel=a.id;humanClearance(a,cmds);return;}
+  if(!a){aLater(1.5,()=>{aLog('?','(no reply — no aircraft recognised that callsign)','sys');});if(GM!=='play')aLog('SYS','Coach: start with the full callsign exactly as on the strip, e.g. “'+(A.list[0]?.tel||'Swiss 123')+', …”.','sys');return;}
+  A.sel=a.id;fillCmd();
+  if(!cmds.length){aLater(1.8,()=>pilotSay(a,`Geneva, ${a.tel}, say again`));return;}
+  const rb=[],acts=[];let note='';
+  for(const c of cmds){
+    if(c.k==='HDG'&&a.st==='air'){const h=c.v===0?360:c.v;rb.push(`${c.dir==='L'?'left':c.dir==='R'?'right':'fly'} heading ${hdgStr(h)}`);acts.push(()=>{a.tgt.hdg=wrap360(h+VAR);a.turn=c.dir;a.hold=false;a.touched=true;if(a.loc){a.loc=false;a.gs=false;}});}
+    if(c.k==='ALT'&&a.st!=='landroll'){
+      if(c.fl&&c.v<=TA){note=`confirm altitude ${c.v} feet? That is below the transition altitude`;aScore(-5,`Phraseology: ${c.v} ft is an altitude, not a flight level`);}
+      if(!c.fl&&c.v>TA+500){note=`confirm flight level ${c.v/100}?`;aScore(-5,`Phraseology: above the transition altitude use flight levels`);}
+      const below=c.v<=TA;if(below&&!c.qnh&&!a.qnh){note=note||'request QNH';aScore(-5,'Phraseology: give the QNH with the first altitude clearance below the transition altitude');}
+      if(below&&c.qnh)a.qnh=true;
+      const word=c.v>a.alt?'climb':'descend';rb.push(below?`${word} altitude ${c.v} feet${c.qnh?', QNH '+QNH:''}`:`${word} FL${c.v/100}`);acts.push(()=>{a.tgt.alt=c.v;a.touched=true;});}
+    if(c.k==='SPD'&&a.st==='air'){rb.push(`speed ${c.v} knots`);acts.push(()=>{a.tgt.spd=c.v;});}
+    if(c.k==='ILS'&&a.kind==='arr'){rb.push('cleared ILS approach runway 22');acts.push(()=>{a.ils=true;a.touched=true;});}
+    if(c.k==='LAND'&&a.kind==='arr'){rb.push('runway 22, cleared to land');acts.push(()=>{a.land=true;});}
+    if(c.k==='GA'&&a.kind==='arr'&&a.st==='air'){rb.push('going around');acts.push(()=>{goAround(a,'as instructed');A.st.ga--;A.score+=50;A.items.pop();});}
+    if(c.k==='LUW'&&a.st==='wait'){rb.push('lining up runway 22');acts.push(()=>{a.st='lineup';a.x=THR22.x-UX*0.02;a.y=THR22.y-UY*0.02;a.hdg=CRS22;});}
+    if(c.k==='TKOF'&&(a.st==='wait'||a.st==='lineup')){
+      if(rwyBusy(a)){aLater(1.8,()=>pilotSay(a,`${a.tel}, negative, traffic on the runway`));aScore(-50,'Takeoff clearance with the runway occupied');return;}
+      const close=A.list.find(o=>o.kind==='arr'&&o.loc&&rwy(o).along<3);if(close){aScore(-75,`Takeoff clearance with ${close.code} on short final`);}
+      rb.push('runway 22, cleared for takeoff');acts.push(()=>{a.st='roll';a.x=THR22.x-UX*0.02;a.y=THR22.y-UY*0.02;a.hdg=CRS22;a.ias=0;});}
+    if(c.k==='DEP'&&a.kind==='dep'&&a.st==='air'){rb.push('Departure 119.530');acts.push(()=>{a.gone=true;A.st.departed++;aScore(a.alt>3500?80:40,`${a.code} handed to Departure`);});}
+  }
+  if(!rb.length){aLater(1.8,()=>pilotSay(a,`${a.tel}, unable, say again`));return;}
+  aLater(1.6+Math.random(),()=>{acts.forEach(f=>f());let s=rb.join(', ');s=s[0].toUpperCase()+s.slice(1)+`, ${a.tel}`;if(note)s+=`. ${note[0].toUpperCase()+note.slice(1)}`;pilotSay(a,s);});
+}
+function fillCmd(){
+  const a=A.list.find(x=>x.id===A.sel);
+  $('#aSelInfo').textContent=a?`${a.code} (${a.tel}) · ${a.type} · ${a.kind==='arr'?'Arrival':'Departure'} · ${a.st==='air'?Math.round(a.alt)+' ft, hdg '+hdgStr(a.hdg-VAR):a.st}`:'Select an aircraft on the scope or a strip.';
+  if(a){$('#aHdg').value=hdgStr(a.tgt.hdg!=null?a.tgt.hdg-VAR:a.hdg-VAR);$('#aAlt').value=String(a.tgt.alt);$('#aSpd').value=String(Math.round(a.tgt.spd/10)*10);}
+}
+function buttonCmd(k){
+  const a=A.list.find(x=>x.id===A.sel);if(!a){aLog('SYS','Select an aircraft first.','sys');return;}
+  let t='';const h=parseInt($('#aHdg').value,10),alt=+$('#aAlt').value,s=+$('#aSpd').value;
+  if(k==='L'||k==='R'||k==='H'){if(!(h>=1&&h<=360))return aLog('SYS','Enter a heading from 001 to 360.','sys');t=`${a.tel}, ${k==='L'?'turn left':k==='R'?'turn right':'fly'} heading ${hdgStr(h)}`;}
+  if(k==='ALT')t=`${a.tel}, ${alt>a.alt?'climb':'descend'} ${alt<=TA?`altitude ${alt} feet, QNH ${QNH}`:`flight level ${alt/100}`}`;
+  if(k==='SPD')t=`${a.tel}, ${s<a.ias?'reduce':'increase'} speed ${s} knots`;
+  if(k==='ILS')t=`${a.tel}, cleared ILS approach runway 22`;
+  if(k==='LAND')t=`${a.tel}, runway 22, cleared to land, wind 230 degrees 5 knots`;
+  if(k==='GA')t=`${a.tel}, go around, climb altitude 5000 feet`;
+  if(k==='LUW')t=`${a.tel}, runway 22, line up and wait`;
+  if(k==='TKOF')t=`${a.tel}, wind 230 degrees 5 knots, runway 22, cleared for takeoff`;
+  if(k==='DEP')t=`${a.tel}, contact Geneva Departure 119.530, good day`;
+  atcTransmit(t,false);
+}
+function atcCoach(){
+  const box=$('#aCoach');box.hidden=GM==='play';if(GM==='play')return null;
+  const L=A.list,fin=L.filter(a=>a.loc),busy=rwyBusy();
+  for(const a of L){const r=rwy(a);
+    if((a.kind==='arr'||a.kind==='human')&&a.st==='air'&&a.loc&&!a.land&&r.along<9)return{a,t:`${a.code} is established on the ILS ${r.along.toFixed(1)} NM out. Give the landing clearance.`,say:`${a.tel}, runway 22, cleared to land, wind 230 degrees 5 knots`,w:'A landing clearance is only given when the runway will be free. Pilots go around without one.'};}
+  for(const a of L){if(a.kind==='dep'&&a.st==='air'&&a.alt>4000)return{a,t:`${a.code} is climbing through ${Math.round(a.alt)} ft. Hand it to Departure.`,say:`${a.tel}, contact Geneva Departure 119.530, good day`,w:'Departure control works the climbing traffic outside your airspace. A handoff frees your frequency.'};}
+  for(const a of L){if((a.kind==='dep'&&(a.st==='wait'||a.st==='lineup')||a.kind==='human'&&a.st==='lineup'&&!R.cleared)&&!rwyBusy(a)&&!L.some(o=>o.kind==='arr'&&o.loc&&rwy(o).along<5))return{a,t:`Runway 22 is free and no arrival is within 5 NM. Clear ${a.code} for takeoff.`,say:`${a.tel}, wind 230 degrees 5 knots, runway 22, cleared for takeoff`,w:'Only one aircraft may use the runway at a time. A departure needs about 2 minutes of gap before the next arrival lands.'};}
+  for(const a of L){if(!(a.kind==='arr'||a.kind==='human')||a.st!=='air'||a.loc)continue;const r=rwy(a);
+    if(a.tgt.alt>7000&&!a.qnh)return{a,t:`${a.code} is at FL${Math.round(a.alt/100)}. Descend it below the transition altitude. Give the QNH with the first altitude clearance.`,say:`${a.tel}, descend altitude 5000 feet, QNH ${QNH}`,w:'Above 7000 ft pilots set standard pressure and fly flight levels. Below it they need the local QNH, so you give it with the first clearance to an altitude.'};
+    const side=r.perp<0?-1:1,ixHdg=Math.round(side<0?CRS22M-33:CRS22M+30);
+    if(!a.ils&&r.along>7&&Math.abs(r.perp)<5&&r.along<22&&Math.abs(angDiff(a.hdg-VAR,ixHdg))>40)return{a,t:`${a.code} is ${r.along.toFixed(0)} NM from the threshold, ${Math.abs(r.perp).toFixed(1)} NM ${side<0?'north-west':'south-east'} of the centreline. Turn it onto a 30° intercept and clear the ILS.`,say:`${a.tel}, turn ${angDiff(a.hdg-VAR,ixHdg)>0?'right':'left'} heading ${hdgStr(ixHdg)}, cleared ILS approach runway 22`,w:'A 30° intercept lets the autopilot capture the localizer smoothly. Aim to join at least 8 NM out, below the glide slope.'};
+    if(!a.ils){const gate={x:THR22.x+UX*15+UY*(side*5),y:THR22.y+UY*15-UX*(side*5)};const brg=wrap360(Math.atan2(gate.x-a.x,gate.y-a.y)*R2D-VAR);const dd=Math.hypot(gate.x-a.x,gate.y-a.y);
+      const cur=a.tgt.hdg!=null?a.tgt.hdg-VAR:a.hdg-VAR;
+      if(dd>3&&Math.abs(angDiff(cur,brg))>15)return{a,t:`Vector ${a.code} toward a point 15 NM north-east of the runway, ${side<0?'north-west':'south-east'} of the final course, so it can join the ILS from the side.`,say:`${a.tel}, turn ${angDiff(a.hdg-VAR,brg)>0?'right':'left'} heading ${hdgStr(Math.round(brg/5)*5)}`,w:'Controllers build a circuit: downwind, base, then a turn onto final. Headings are rounded to 5°.'};
+      if(dd<=3&&Math.abs(angDiff(cur,side<0?130:310))>10)return{a,t:`${a.code} is at the gate. Turn it toward the final course (base leg).`,say:`${a.tel}, turn ${side<0?'right':'left'} heading ${hdgStr(side<0?130:310)}`,w:'The base leg points the aircraft across the final course so the intercept is the last turn.'};}
+  }
+  return{t:'All quiet. Watch the scope: arrivals appear at the edge, departures call from the holding point.'};
+}
+function renderAtcCoach(){
+  $$('#atc .coach').forEach(e=>e.classList.remove('coach'));
+  if(GM==='learn'&&ALEARN.tour){$('#aCoach').hidden=false;const tt=ATC_TOUR[ALEARN.ti];$('#aCoachK').textContent='LESSON';
+    $('#aCoachText').innerHTML=`<b>${tt[1]}</b> <span class="lbl">${ALEARN.ti+1} / ${ATC_TOUR.length}</span><div>${tt[2]}</div><div class="row" style="margin-top:8px"><button class="btn" data-act="atour">Next</button><button class="btn" data-act="atourend">Skip the tour</button></div>`;
+    $('#aCoachSayWrap').hidden=true;const el=$(tt[0]);if(el)el.classList.add('coach');return;}
+  const c=atcCoach();if(!c)return;
+  $('#aCoachK').textContent=GM==='learn'?'LESSON':'COACH';
+  ALEARN.hold=GM==='learn'&&!NET.on&&!!c.say&&ALEARN.skip!==c.say;
+  let html=esc(c.t);
+  if(GM==='learn'){if(c.w)html+=`<div class="why">Why: ${esc(c.w)}</div>`;if(ALEARN.hold)html+='<div class="hold">⏸ Traffic is frozen until you give this instruction. <button class="btn" data-act="askip" style="padding:3px 8px">Skip</button></div>';}
+  $('#aCoachText').innerHTML=html;$('#aCoachSayWrap').hidden=!c.say;if(c.say)$('#aCoachSay').textContent=c.say;A.coachSay=c.say||null;
+  if(c.a&&GM!=='play'&&c.a.id!==A.sel&&!A.userSel){}
+}
+
+/* ---------- ATC drawing */
+function drawRadar(){
+  const cv=$('#radar'),rc=cv.getBoundingClientRect(),d=DPR(),W=rc.width,H=rc.height;
+  if(cv.width!==Math.round(W*d)||cv.height!==Math.round(H*d)){cv.width=Math.round(W*d);cv.height=Math.round(H*d);}
+  const x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);
+  x.fillStyle='#050c0b';x.fillRect(0,0,W,H);
+  const Cn={x:4,y:4},k=(Math.min(W,H)/2-8)/A.range,cx=W/2,cy=H/2;
+  const S=p=>[cx+(p.x-Cn.x)*k,cy-(p.y-Cn.y)*k];A.S=S;
+  x.fillStyle='#0a1d26';x.strokeStyle='#1c4656';x.lineWidth=1;x.beginPath();LAKE.forEach((q,i)=>{const[a,b]=S(q);i?x.lineTo(a,b):x.moveTo(a,b);});x.closePath();x.fill();x.stroke();
+  const[ax,ay]=S({x:0,y:0});x.strokeStyle='#17302b';for(let r=10;r<=50;r+=10){x.beginPath();x.arc(ax,ay,r*k,0,7);x.stroke();x.fillStyle='#2f5a51';x.font=`10px ${MONO}`;x.fillText(r+' NM',ax+4,ay-r*k-3);}
+  const t22=S(THR22),fe=S({x:THR22.x+UX*20,y:THR22.y+UY*20});x.strokeStyle='#3b6b61';x.setLineDash([4,4]);x.beginPath();x.moveTo(t22[0],t22[1]);x.lineTo(fe[0],fe[1]);x.stroke();x.setLineDash([]);
+  for(let i=1;i<=20;i++){const p=S({x:THR22.x+UX*i,y:THR22.y+UY*i}),l=i%5===0?6:3;x.beginPath();x.moveTo(p[0]-UY*l,p[1]-UX*l);x.lineTo(p[0]+UY*l,p[1]+UX*l);x.stroke();}
+  const t04=S(THR04);x.strokeStyle='#e9eef0';x.lineWidth=3;x.beginPath();x.moveTo(t04[0],t04[1]);x.lineTo(t22[0],t22[1]);x.stroke();
+  x.fillStyle='#8fb7ad';x.font=`11px ${MONO}`;x.fillText('LSGG 22',t22[0]+6,t22[1]-6);
+  for(const n of NAV){const[s,t]=S(n);x.strokeStyle='#5e8f84';x.lineWidth=1.2;x.beginPath();for(let i=0;i<6;i++){const an=i*Math.PI/3;x[i?'lineTo':'moveTo'](s+5*Math.cos(an),t+5*Math.sin(an));}x.closePath();x.stroke();x.fillStyle='#5e8f84';x.fillText(n.id,s+8,t+4);}
+  for(const a of A.list){
+    const[s,t]=S(a),conf=A.conflict&&A.conflict.has(a.id),sel=a.id===A.sel;
+    const col=conf?'#ff5a4e':a.kind==='human'?'#3ef07a':a.kind==='arr'?'#cfe9ff':'#b9f5c4';
+    x.fillStyle=col;for(const[i,tr]of a.trail.entries()){const[q,w]=S(tr);x.globalAlpha=0.2+i*0.1;x.fillRect(q-1.5,w-1.5,3,3);}x.globalAlpha=1;
+    if(a.st==='air'){const v=S({x:a.x+a.ias/60*Math.sin(a.hdg*D2R),y:a.y+a.ias/60*Math.cos(a.hdg*D2R)});x.strokeStyle=col;x.lineWidth=1;x.beginPath();x.moveTo(s,t);x.lineTo(v[0],v[1]);x.stroke();}
+    x.strokeStyle=col;x.lineWidth=1.6;if(a.kind==='human'){x.beginPath();x.moveTo(s,t-6);x.lineTo(s+6,t);x.lineTo(s,t+6);x.lineTo(s-6,t);x.closePath();x.stroke();}else if(a.kind==='arr')x.strokeRect(s-4,t-4,8,8);else{x.beginPath();x.arc(s,t,4.5,0,7);x.stroke();}
+    if(sel){x.strokeStyle='#3fdcff';x.beginPath();x.arc(s,t,11,0,7);x.stroke();}
+    const lx=s+14,ly=t-28;x.strokeStyle=col;x.lineWidth=0.8;x.beginPath();x.moveTo(s+4,t-4);x.lineTo(lx-2,ly+16);x.stroke();
+    x.fillStyle=col;x.font=`${sel?'bold ':''}11px ${MONO}`;
+    const flags=(a.hold?' HLD':'')+(a.ils?(a.loc?' LOC':' ILS'):'')+(a.land?' LND':'')+(a.st==='wait'?' RDY':'')+(a.st==='lineup'?' LUW':'');
+    x.fillText(a.code+flags,lx,ly);
+    if(a.st==='air'||a.st==='roll'){const tr=a.vs>300?'↑':a.vs<-300?'↓':' ';x.fillText(`${String(Math.round(a.alt/100)).padStart(3,'0')}${tr}${String(Math.round(a.tgt.alt/100)).padStart(3,'0')} ${Math.round(a.ias/10)}`,lx,ly+12);}
+    a.lab={x:lx,y:ly-10,w:110,h:26,s,t};
+  }
+}
+function renderStrips(){
+  const L=[...A.list].sort((a,b)=>a.kind===b.kind?a.born-b.born:a.kind==='arr'?-1:1);
+  $('#strips').innerHTML=L.map(a=>{if(a.kind==='human'){const st=a.st==='air'?`${Math.round(a.alt)} ft`:a.st==='lineup'?'Runway 22':a.st==='roll'?'Takeoff roll':a.st==='landroll'?'Landing roll':'Taxiing';
+      return`<button class="strip human ${a.id===A.sel?'sel':''} ${A.conflict&&A.conflict.has(a.id)?'cf':''}" data-act="asel:${a.id}"><span></span><span class="m"><b>${esc(a.code)}</b> A320/M · your friends<br>${esc(st)}</span><span class="r">CREW<br>${a.land?'CLR LDG':R.cleared&&a.st!=='air'?'CLR TKOF':''}</span></button>`;}
+    const st=a.st==='air'?`${Math.round(a.alt)} → ${a.tgt.alt<=TA?a.tgt.alt+' ft':'FL'+a.tgt.alt/100}`:a.st==='wait'?'Holding point 22':a.st==='lineup'?'Lined up 22':a.st==='roll'?'Takeoff roll':'Landing roll';
+    const fl=[a.hold&&'HOLD',a.ils&&'ILS',a.loc&&'EST',a.land&&'CLR LDG',a.tgt.hdg!=null&&a.st==='air'&&'H'+hdgStr(a.tgt.hdg-VAR)].filter(Boolean).join(' · ');
+    return`<button class="strip ${a.kind} ${a.id===A.sel?'sel':''} ${A.conflict&&A.conflict.has(a.id)?'cf':''}" data-act="asel:${a.id}"><span></span><span class="m"><b>${esc(a.code)}</b> ${esc(a.type)}/M<br>${esc(st)}</span><span class="r">${a.kind==='arr'?'ARR':'DEP'}<br>${esc(fl)}</span></button>`;}).join('')||'<div class="lbl">No traffic yet.</div>';
+  $('#aStats').innerHTML=`Score <b>${A.score}</b> · Landed <b>${A.st.landed}</b> · Departed <b>${A.st.departed}</b> · Conflicts <b>${A.st.conf}</b> · Go-arounds <b>${A.st.ga}</b>`;
+  $('#aMetar').textContent=metar();
+  for(const b of $$('[data-act^="ats:"]'))b.classList.toggle('sel',+b.dataset.act.split(':')[1]===A.ts);
+  for(const b of $$('[data-act^="arng:"]'))b.classList.toggle('sel',+b.dataset.act.split(':')[1]===A.range);
+}
+function initAtcSim(){
+  Object.assign(A,{list:[],t:0,rt:0,ts:1,paused:false,sel:null,nextArr:3,nextDep:14,score:0,st:{landed:0,departed:0,conf:0,ga:0,lost:0},pairs:new Set(),conflict:new Set(),timers:[],items:[]});
+  $('#aLog').innerHTML='';
+  aLog('SYS',`You are Geneva Arrival and Tower combined. Runway 22 in use, wind 230/5, QNH ${QNH}, transition altitude ${TA} ft. Arrivals are squares, departures circles${NET.on?', your friends’ A320 is the green diamond':''}.`,'sys');
+}
+function showAtcUI(){
+  MODE='atc';ROLE='ATC';show('atc');
+  $('#aMode').textContent=modeLabel();$('#aMode').classList.toggle('play',GM==='play');
+  $('#tsBox').hidden=NET.on;$('#aPause').hidden=NET.on&&!NET.host;
+  $('#aAlt').innerHTML=[4000,5000,6000,7000,8000,9000,10000,11000,12000,13000].map(v=>`<option value="${v}">${v<=TA?v+' ft':'FL'+v/100}</option>`).join('');
+  $('#aSpd').innerHTML=[160,170,180,190,200,210,220,230,250].map(v=>`<option value="${v}">${v} kt</option>`).join('');
+  $('#aMicLine').textContent=NET.on?'Hold TALK (or T) and speak to the pilots, callsign first.':!MIC.ok?'Voice input is not available here. Type instructions or use the buttons.':'Hold the button (or T) and give an instruction, callsign first.';
+  ALEARN.tour=GM==='learn'&&!NET.on;ALEARN.ti=0;ALEARN.hold=false;ALEARN.skip=null;
+  renderAtcCoach();actx();
+}
+function startAtc(){ROLE='ATC';GM=readGM();initAtcSim();showAtcUI();}
+function endAtc(){
+  MODE='debrief';
+  $('#dKicker').textContent=`Air Traffic Control · ${modeLabel()} · ${Math.round(A.t/60)} min shift`;
+  $('#dTitle').textContent='Shift complete';
+  $('#dSum').textContent=`${A.st.landed} landed, ${A.st.departed} departures handed off, ${A.st.conf} separation losses, ${A.st.ga} go-arounds, ${A.st.lost} lost from the sector.`;
+  SC={total:A.score,items:A.items};renderDebrief();
+}
+
+/* =====================================================================
+   Learn mode: tours, pauses, explanations
+   ===================================================================== */
+const LEARN={tour:false,ti:0,hold:false,slow:1,skip:null,dirty:false};
+const ALEARN={tour:false,ti:0,hold:false,skip:null};
+const PILOT_TOUR=[
+ ['#cPFD','Primary flight display (PFD)','Your main instrument. In the middle is the artificial horizon: blue sky, brown ground, and the yellow aircraft symbol. The green bars are the flight director, which shows where to steer. Left is the speed tape in knots, right the altitude in feet and the vertical speed. Heading runs along the bottom. The top row shows what the autopilot and autothrust are doing.'],
+ ['#cND','Navigation display (ND)','A moving map seen from above, with your heading at the top. The white bar is runway 04/22, the magenta hexagons are radio beacons (SPR is St-Prex, PAS is Passeiry), and the cyan triangle is the heading set on the autopilot panel. GS is your ground speed.'],
+ ['#cEWD','Engine and warning display (E/WD)','Engine thrust (N1 %), temperature (EGT) and fuel flow, with the flap position underneath. Below the line are memos and warnings. Blue memo items still need doing; green means done; red means a warning.'],
+ ['.glare','Flight control unit (FCU)','The autopilot panel on the glareshield. Set a speed, heading or altitude with the buttons, then press PULL to fly it. AP1 engages the autopilot, A/THR the autothrust, APPR arms the ILS approach, LS shows the ILS diamonds.'],
+ ['#pnlLevers','Pedestal','Thrust levers with detents (REV, IDLE, CL, FLX/MCT, TOGA), the flaps lever, the landing gear lever, ground spoilers, autobrake, and the sidestick. Pull the sidestick back to raise the nose.'],
+ ['#pnlRadio','Radio panel','COM1 has an ACTIVE frequency, the one you talk on, and a STANDBY one. Tap a frequency on the kneeboard to load it into standby, then press ⇄ to swap.'],
+ ['#pnlComms','Radio','Everything said on the frequency shows up here. Hold TALK (or the T key) to speak, release to send. You can also type.'],
+ ['#pnlCrew','Crew and checklists','Talk to the other pilot and run the Airbus normal checklists. Tap each line once it is done. Now let’s fly!']];
+const ATC_TOUR=[
+ ['#radar','Radar scope','Squares are arrivals, circles are departures. The dashed line is the final approach to runway 22, with a tick every nautical mile. Each label shows the callsign, then altitude in hundreds of feet, an arrow if climbing or descending, the cleared altitude, and speed in tens of knots.'],
+ ['#strips','Flight strips','One strip per aircraft: a yellow band for arrivals, blue for departures. Click a strip or a radar target to select it.'],
+ ['#aCmd','Instruction panel','Give headings, altitudes and speeds, and approach, landing and takeoff clearances with the buttons. Each button says the full instruction on the radio for you.'],
+ ['#aPtt','Talk','Or say it yourself: hold TALK (or T), callsign first. “Swiss 123, turn left heading 040.” The pilot reads it back.'],
+ ['#aLog','Frequency','Everything said on the radio. Always check the readback. Traffic will freeze at each step until you give the instruction.']];
+const WHY=[
+ [/STANDBY|Tune/,'Each controller works their own frequency. You prepare the next one in STANDBY and swap, so you never lose contact while tuning.'],
+ [/Read back|read it back/i,'ATC needs to hear that you understood. Runways, headings, altitudes, QNH and frequencies must always be read back, finished with your callsign.'],
+ [/Make your call|Call the controller|Check in/,'Radio calls follow a fixed order so they stay short and clear: who you call, who you are, then what you want.'],
+ [/ground spoilers|GND SPLR/,'Armed spoilers pop up automatically at touchdown or in a rejected takeoff. They kill lift, so the wheels press down and the brakes work.'],
+ [/T\.O CONFIG/,'The test checks flaps, spoilers and brakes. A wrong takeoff setting is a classic cause of accidents.'],
+ [/checklist/i,'Checklists catch the one thing everybody forgot. Airbus crews read them at fixed points on every flight.'],
+ [/FLX/,'FLX (flexible) thrust is reduced takeoff thrust. It saves engine wear when the runway is long enough, and Geneva’s 3,900 m runway easily is.'],
+ [/Rotate|VR/,'VR is the speed where the wing can lift the aircraft. Rotate smoothly, about 3° per second. Too fast and the tail hits the runway.'],
+ [/Gear up/,'Retracting the gear cuts drag so the aircraft climbs better. Only after a positive climb, so you can’t settle back onto the runway.'],
+ [/LVR CLB/,'At the thrust reduction altitude you go from takeoff thrust to climb thrust, and the autothrust starts managing the speed.'],
+ [/Flaps zero|S speed/,'Flaps give lift at low speed but add drag. Above S speed the clean wing has enough lift, so you retract them.'],
+ [/autopilot|AP1/,'The autopilot flies the FCU targets precisely, which leaves you free to monitor and talk to ATC.'],
+ [/AUTO BRK/,'Autobrake MED gives a firm, comfortable deceleration after touchdown. MAX is only for a rejected takeoff.'],
+ [/SPD|Slow down/,'You slow down in steps so each flap setting is selected below its maximum speed.'],
+ [/heading|HDG/,'ATC separates traffic with headings. The FCU value is only flown after you PULL the knob.'],
+ [/ALT|altitude|ft\b/,'Climbing or descending only after a clearance keeps you away from traffic at other levels.'],
+ [/APPR/,'APPR arms the ILS: the localizer gives left-right guidance to the runway, the glide slope a 3° descent path.'],
+ [/Flaps (one|two|three|full)/,'Each flap step adds lift so you can fly slower. Each step has a maximum speed (VFE), shown by the red and black band on the speed tape.'],
+ [/Gear down|Glide slope/,'The gear goes down as the glide slope comes in, so you are fully configured by 1,000 ft.'],
+ [/RETARD|Flare|IDLE/,'At 20 ft you pull to idle so the engines stop pushing and the aircraft settles onto the runway.'],
+ [/Reverse/,'Reverse thrust redirects the engine air forwards to help the brakes.'],
+ [/V1|One hundred|Thrust set|Positive climb|Spoilers|Decel|Seventy|callout/i,'Callouts keep both pilots in sync. V1 is the decision speed: after V1 the takeoff continues even if an engine fails.']];
+function whyFor(s){const t=(s.t||'').replace(/<[^>]+>/g,'');for(const[re,w]of WHY)if(re.test(t))return w;return'';}
+function learnUpdate(s,key){
+  if(GM!=='learn'||NET.on||!P)return;
+  const air=!P.onGround;
+  const slowStep=s.sel==='#stick'||(s.sel==='[data-act="thr:0"]'&&air)||/Rotate|Flare/.test(s.t||'');
+  const hold=!!(s.sel||s.say)&&!slowStep&&LEARN.skip!==key;
+  const slow=slowStep?0.3:1;
+  if(hold!==LEARN.hold||slow!==LEARN.slow){LEARN.hold=hold;LEARN.slow=slow;LEARN.dirty=true;}
+}
+
+/* =====================================================================
+   Multiplayer: PeerJS rooms, host-authoritative sim, real-voice radio
+   ===================================================================== */
+const NET={on:false,host:false,started:false,peer:null,code:'',conns:{},hostConn:null,me:{id:'',name:'',role:''},roster:[],humans:{CPT:false,FO:false,ATC:false},stream:null,calls:{},audios:{},simAtc:false,lp:0,lr:0};
+const CODECH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const mkCode=()=>Array.from({length:4},()=>CODECH[Math.floor(Math.random()*CODECH.length)]).join('');
+function netSend(m){if(!NET.on&&!NET.peer)return;if(NET.host){for(const c of Object.values(NET.conns))if(c.open)try{c.send(m);}catch(e){}}else if(NET.hostConn&&NET.hostConn.open)try{NET.hostConn.send(m);}catch(e){}}
+function toHost(m){if(NET.host)onMsg(m,NET.me.id);else netSend(m);}
+function mpMsg(t){$('#mpMsg').textContent=t;}
+function netAvailable(){if(typeof Peer==='undefined'){mpMsg('Multiplayer can’t load here. It works on the website version of the game (it is blocked inside Claude’s preview).');return false;}return true;}
+function netErr(e){const t=e&&e.type;
+  const msg=t==='peer-unavailable'?'No game found with that code. Check the code and that the host is still in the lobby.':t==='unavailable-id'?'That code is in use, trying another…':t==='browser-incompatible'?'This browser can’t do multiplayer. Use Chrome, Edge or Safari.':'Can’t reach the multiplayer server. Check your internet connection. (Multiplayer doesn’t work inside Claude’s preview.)';
+  if(MODE==='lobby')$('#lbMsg').textContent=msg;else mpMsg(msg);
+  if(t==='unavailable-id'&&NET.host)setTimeout(netHost,300);}
+function myName(){return($('#mpName').value.trim()||'Pilot').slice(0,16);}
+function netHost(){
+  if(!netAvailable())return;netLeave(true);
+  NET.code=mkCode();mpMsg('Creating game…');
+  const peer=new Peer('gvafd-'+NET.code,{debug:0});NET.peer=peer;NET.host=true;
+  peer.on('open',id=>{NET.on=true;NET.me={id,name:myName(),role:''};NET.roster=[{id,name:NET.me.name,role:'',host:true}];NET.humans={CPT:false,FO:false,ATC:false};showLobby();initAudio();});
+  peer.on('connection',c=>{c.on('open',()=>{NET.conns[c.peer]=c;});c.on('data',m=>onMsg(m,c.peer));c.on('close',()=>dropPeer(c.peer));c.on('error',()=>dropPeer(c.peer));});
+  peer.on('call',answerCall);peer.on('error',netErr);
+}
+function netJoin(){
+  if(!netAvailable())return;
+  const code=$('#mpCode').value.trim().toUpperCase();if(code.length!==4){mpMsg('Type the 4-letter code from the host.');return;}
+  netLeave(true);NET.code=code;mpMsg('Joining '+code+'…');
+  const peer=new Peer({debug:0});NET.peer=peer;NET.host=false;
+  peer.on('open',id=>{const c=peer.connect('gvafd-'+code,{reliable:true});NET.hostConn=c;
+    c.on('open',()=>{NET.on=true;NET.me={id,name:myName(),role:''};c.send({t:'hello',name:NET.me.name});showLobby();initAudio();});
+    c.on('data',m=>onMsg(m,'host'));c.on('close',hostLeft);});
+  peer.on('call',answerCall);peer.on('error',netErr);
+}
+function hostLeft(){if(!NET.on)return;netLeave();show('menu');MODE='menu';mpMsg('The host left the game.');}
+function netLeave(quiet){
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  if(NET.stream)NET.stream.getTracks().forEach(t=>t.stop());
+  for(const a of Object.values(NET.audios))try{a.srcObject=null;a.remove();}catch(e){}
+  Object.assign(NET,{on:false,host:false,started:false,peer:null,conns:{},hostConn:null,roster:[],humans:{CPT:false,FO:false,ATC:false},stream:null,calls:{},audios:{},simAtc:false});
+}
+function addRoster(id,name){if(NET.roster.find(r=>r.id===id))return;NET.roster.push({id,name:String(name||'Pilot').slice(0,16),role:''});pushRoster();}
+function setSeat(id,role){const me=NET.roster.find(r=>r.id===id);if(!me||NET.started)return;if(role&&NET.roster.some(r=>r.role===role&&r.id!==id))return;me.role=role;pushRoster();}
+function pushRoster(){NET.humans={CPT:NET.roster.some(r=>r.role==='CPT'),FO:NET.roster.some(r=>r.role==='FO'),ATC:NET.roster.some(r=>r.role==='ATC')};
+  const me=NET.roster.find(r=>r.id===NET.me.id);if(me)NET.me.role=me.role;
+  netSend({t:'roster',roster:NET.roster,humans:NET.humans});renderLobby();callPeers();}
+function dropPeer(id){
+  if(!NET.host)return;const r=NET.roster.find(x=>x.id===id);delete NET.conns[id];
+  if(NET.calls[id]){try{NET.calls[id].close();}catch(e){}delete NET.calls[id];}
+  if(NET.audios[id]){NET.audios[id].remove();delete NET.audios[id];}
+  if(!r)return;NET.roster=NET.roster.filter(x=>x.id!==id);
+  const was=r.role;pushRoster();
+  if(NET.started&&P){
+    if(was==='CPT'){Crew.hands=true;sysMsg(`${r.name} (Captain) left. The computer Captain has control.`);}
+    if(was==='FO')sysMsg(`${r.name} (First Officer) left. The computer First Officer takes over.`);
+    if(was==='ATC'){NET.simAtc=false;sysMsg(`${r.name} (ATC) left. Computer ATC takes over.`);}
+  }
+}
+const SEATS=[['CPT','Captain','Left seat · pilot flying'],['FO','First Officer','Right seat · pilot monitoring'],['ATC','Air Traffic Control','Geneva Arrival + Tower']];
+function showLobby(){MODE='lobby';show('lobby');renderLobby();}
+function renderLobby(){
+  if(MODE!=='lobby')return;
+  $('#lbCode').textContent=NET.code;
+  $('#lbSeats').innerHTML=SEATS.map(([r,n,d])=>{const who=NET.roster.find(x=>x.role===r),mine=who&&who.id===NET.me.id;
+    return`<div class="seat"><span class="lbl">${esc(d)}</span><h3>${esc(n)}</h3><p>${who?esc(who.name)+(mine?' (you)':''):'<i>Empty: the computer</i>'}</p><button class="btn" data-act="seat:${mine?'':r}" ${who&&!mine?'disabled':''}>${mine?'Leave seat':'Take seat'}</button></div>`;}).join('');
+  const un=NET.roster.filter(r=>!r.role);
+  $('#lbOthers').textContent=`${NET.roster.length} connected. `+(un.length?'No seat yet: '+un.map(r=>r.name+(r.id===NET.me.id?' (you)':'')).join(', '):'Everyone has a seat.')+(NET.stream?' · Microphone ready.':' · Microphone not allowed: others won’t hear you, but you can type.');
+  $('#lbHostOpts').hidden=!NET.host;$('#lbStart').hidden=!NET.host;
+  if(!NET.host)$('#lbMsg').textContent='Waiting for the host to start the flight…';
+}
+function lbStart(){
+  if(!NET.host)return;
+  if(NET.roster.some(r=>!r.role)){$('#lbMsg').textContent='Everyone needs a seat before starting.';return;}
+  const m={t:'start',gm:$('#lbPlay').checked?'play':'tut',scn:$('#lbApp').checked?'app':'to',roster:NET.roster,humans:NET.humans};
+  netSend(m);startNetLocal(m);
+}
+function startNetLocal(m){
+  GM=m.gm;SCN=m.scn;NET.roster=m.roster;NET.humans=m.humans;FO_RADIO=false;NET.started=true;
+  const me=NET.roster.find(r=>r.id===NET.me.id);NET.me.role=me?me.role:'';
+  if(NET.host){NET.simAtc=NET.humans.ATC;if(NET.simAtc)initAtcSim();initPilotSim(SCN);}
+  else{P=null;A.list=[];$('#log').innerHTML='';$('#aLog').innerHTML='';}
+  if(NET.me.role==='ATC')showAtcUI();else showPilotUI(NET.me.role);
+}
+function endNet(){if(!NET.host)return;if(P)finishPilot();}
+function netState(){
+  if(!P)return;
+  const m={t:'st',P,co:Crew.co,exp:Crew.exp.map(e=>({name:e.name})),ck:CK.done,simT,radT,paused,hands:Crew.hands,
+    pend:R.pending?{kind:R.pending.kind,unit:R.pending.unit,say:R.pending.say}:null,
+    R:{flags:R.flags,clr:R.clr,cleared:R.cleared,landClr:R.landClr,rbHint:R.rbHint,calledReady:R.calledReady,calledIn:R.calledIn}};
+  if(NET.simAtc)m.A={list:A.list.map(a=>{const o={...a};delete o.lab;return o;}),score:A.score,st:A.st,conf:[...(A.conflict||[])],t:A.t};
+  netSend(m);
+}
+function applyState(m){
+  P=m.P;Crew.co=m.co;Crew.exp=m.exp;CK.done=m.ck;simT=m.simT;radT=m.radT;paused=m.paused;Crew.hands=m.hands;R.pending=m.pend;Object.assign(R,m.R);
+  if(m.A){A.list=m.A.list;A.score=m.A.score;A.st=m.A.st;A.conflict=new Set(m.A.conf);A.t=m.A.t;}
+}
+function onMsg(m,from){
+  switch(m.t){
+    case'hello':if(NET.host)addRoster(from,m.name);return;
+    case'seat':if(NET.host)setSeat(from,m.role);return;
+    case'act':if(NET.host&&P)act(m.a);return;
+    case'stick':if(NET.host)Stick.remote={p:+m.p||0,r:+m.r||0};return;
+    case'tx':if(NET.host&&P)transmit(String(m.text).slice(0,300),false,m.voice,m.role);return;
+    case'atc':if(NET.host&&NET.simAtc)atcTransmit(String(m.text).slice(0,300),m.voice);return;
+    case'ptt':if(NET.host)netSend(m);onPtt(m);return;
+    case'end':if(NET.host)endNet();return;
+    case'roster':NET.roster=m.roster;NET.humans=m.humans;{const me=NET.roster.find(r=>r.id===NET.me.id);if(me)NET.me.role=me.role;}renderLobby();callPeers();return;
+    case'start':startNetLocal(m);return;
+    case'st':if(!NET.host)applyState(m);return;
+    case'log':if(!NET.host){renderLog(m.scope,m.who,m.text,m.cls);if(m.voice)speakScoped(m.scope,m.text,m.voice);}return;
+    case'deb':if(!NET.host){$('#dKicker').textContent=m.kick;$('#dTitle').textContent=m.title;$('#dSum').textContent=m.sum;SC=m.SC;MODE='debrief';renderDebrief();}return;
+    case'lobby':NET.started=false;showLobby();return;
+  }
+}
+/* ----- real-voice radio */
+async function initAudio(){
+  try{NET.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});NET.stream.getAudioTracks().forEach(t=>t.enabled=false);}
+  catch(e){NET.stream=null;}
+  renderLobby();callPeers();
+}
+function silentStream(){const c=actx();if(!c)return new MediaStream();return c.createMediaStreamDestination().stream;}
+function callPeers(){
+  if(!NET.peer||!NET.on)return;
+  for(const r of NET.roster){if(r.id===NET.me.id||NET.calls[r.id])continue;if(NET.me.id<r.id){try{const c=NET.peer.call(r.id,NET.stream||silentStream());if(c)wireCall(c);}catch(e){}}}
+}
+function answerCall(c){c.answer(NET.stream||silentStream());wireCall(c);}
+function wireCall(c){
+  NET.calls[c.peer]=c;
+  c.on('stream',st=>{let a=NET.audios[c.peer];if(!a){a=document.createElement('audio');a.autoplay=true;a.hidden=true;document.body.appendChild(a);NET.audios[c.peer]=a;}a.srcObject=st;a.muted=true;a.play().catch(()=>{});});
+  c.on('close',()=>{delete NET.calls[c.peer];});c.on('error',()=>{delete NET.calls[c.peer];});
+}
+function pttNet(on,ch){
+  if(!NET.on)return;
+  if(NET.stream)NET.stream.getAudioTracks().forEach(t=>t.enabled=on);
+  const m={t:'ptt',id:NET.me.id,role:NET.me.role,name:NET.me.name,on,ch,freq:P?P.com1.act:0};
+  if(NET.host)netSend(m);else toHost(m);
+}
+function audible(m){
+  const me=NET.me.role,myPilot=me==='CPT'||me==='FO',fromPilot=m.role==='CPT'||m.role==='FO';
+  if(m.ch==='int')return myPilot&&fromPilot;
+  if(fromPilot)return me==='ATC'?!!UNITS[m.freq]&&m.freq!==F_.ATIS:myPilot;
+  return myPilot&&P&&!!UNITS[P.com1.act]&&P.com1.act!==F_.ATIS;
+}
+function onPtt(m){
+  if(m.id===NET.me.id)return;
+  const a=NET.audios[m.id],hear=m.on&&audible(m);
+  if(a){a.muted=!hear;if(hear)a.play().catch(()=>{});}
+  const line=MODE==='atc'?$('#aMicLine'):$('#micLine');
+  if(hear){tone(m.ch==='int'?900:1500,0.05,'square',0.03);if(line&&!PTT.on)line.textContent=`${m.ch==='int'?'🎧':'📻'} ${m.name} (${m.role}) is talking…`;}
+  else if(!m.on&&line&&!PTT.on&&/is talking/.test(line.textContent)){tone(1100,0.05,'square',0.03);line.textContent='';}
+}
+
+/* =====================================================================
+   Input wiring
+   ===================================================================== */
+function act(a,el){
+  const[k,v,w]=a.split(':');const p=P;
+  switch(k){
+    case'role-CPT':return startPilot('CPT');case'role-FO':return startPilot('FO');case'role-ATC':return startAtc();
+    case'menu':try{speechSynthesis.cancel();}catch(e){}if(NET.on)netLeave();MODE='menu';return show('menu');
+    case'again':if(NET.on){if(NET.host){NET.started=false;netSend({t:'lobby'});showLobby();}else{$('#dSum').textContent='Waiting for the host to start again…';}return;}return ROLE==='ATC'?startAtc():startPilot(ROLE);
+    case'mphost':return netHost();case'mpjoin':return netJoin();
+    case'seat':if(NET.host)setSeat(NET.me.id,v);else toHost({t:'seat',role:v});return;
+    case'lbstart':return lbStart();
+    case'tour':LEARN.ti++;if(LEARN.ti>=PILOT_TOUR.length)LEARN.tour=false;return renderCoach();
+    case'tourend':LEARN.tour=false;return renderCoach();
+    case'skipstep':LEARN.skip=coachLast;LEARN.hold=false;return renderCoach();
+    case'atour':ALEARN.ti++;if(ALEARN.ti>=ATC_TOUR.length)ALEARN.tour=false;return renderAtcCoach();
+    case'atourend':ALEARN.tour=false;return renderAtcCoach();
+    case'askip':ALEARN.skip=A.coachSay;ALEARN.hold=false;return renderAtcCoach();
+    case'sound':AU.on=!AU.on;$$('[data-act="sound"]').forEach(b=>b.textContent=AU.on?'Sound on':'Sound off');if(!AU.on)try{speechSynthesis.cancel();}catch(e){}return;
+    case'keys':$('#keysOv').hidden=false;return;case'keysclose':$('#keysOv').hidden=true;return;
+    case'pause':if(NET.on&&!NET.host)return;paused=!paused;$('#bPause').textContent=paused?'Resume':'Pause';return;
+    case'sayit':{const s=$('#coachSay').textContent;if(s)transmit(s);return;}
+    case'asayit':if(A.coachSay)atcTransmit(A.coachSay);return;
+    case'ats':if(NET.on)return;A.ts=+v;return renderStrips();case'apause':if(NET.on){if(NET.host){paused=!paused;$('#aPause').textContent=paused?'Resume':'Pause';}return;}A.paused=!A.paused;$('#aPause').textContent=A.paused?'Resume':'Pause';return;
+    case'aend':if(NET.on){toHost({t:'end'});return;}return endAtc();case'arng':A.range=+v;return renderStrips();
+    case'asel':A.sel=+v;fillCmd();return renderStrips();
+    case'ac':return buttonCmd(v);
+  }
+  if(NET.on&&!NET.host){if(k==='ctab'){CK.tab=v;renderChk();}else if(MODE==='pilot')toHost({t:'act',a});return;}
+  if(!p)return;
+  switch(k){
+    case'thrd':p.lever=clamp(p.lever+ +v,p.onGround?-20:0,45);break;
+    case'sb':p.sb=clamp(+v,0,1);break;
+    case'brk':p.brakeManual=v==='1';break;
+    case'apoff':apOff(false);break;
+    case'spd':if(v==='pull'){p.athr=true;sysMsg(`Selected speed ${p.fcu.spd}.`);}else p.fcu.spd=clamp(p.fcu.spd+ +v,100,350);break;
+    case'hdg':if(v==='pull'){if(!p.onGround)p.lat='HDG';p.locArmed=false;}else p.fcu.hdg=wrap360(p.fcu.hdg+ +v)||360;break;
+    case'alt':if(v==='pull'){if(!p.onGround)pullAlt(p);}else p.fcu.alt=clamp(p.fcu.alt+ +v,100,39000);break;
+    case'vs':if(v==='pull'){if(!p.onGround){p.vert='V/S';if(!p.fcu.vs)p.fcu.vs=Math.round(p.vs/100)*100;}}else p.fcu.vs=clamp(p.fcu.vs+ +v,-6000,6000);break;
+    case'loc':if(!p.onGround){p.locArmed=!p.locArmed;p.gsArmed=false;}break;
+    case'appr':if(!p.onGround){const on=!(p.locArmed&&p.gsArmed);p.locArmed=on&&!['LOC','LOC*','LAND'].includes(p.lat);p.gsArmed=on&&!['G/S','G/S*','LAND','FLARE'].includes(p.vert);if(on)p.ls=true;}break;
+    case'ap1':if(p.ap)apOff(false);else if(p.onGround||p.ra<100)sysMsg('AP1 cannot be engaged below 100 ft.');else{p.ap=true;if(!p.vert)p.vert='V/S',p.fcu.vs=Math.round(p.vs/100)*100;if(!p.lat){p.lat='HDG';p.fcu.hdg=Math.round(wrap360(p.hdg-VAR));}}break;
+    case'athr':if(p.athr){p.athr=false;p.athrOffT=simT;}else{p.athr=true;}break;
+    case'ls':p.ls=!p.ls;break;
+    case'rng':p.ndRange=p.ndRange===10?20:p.ndRange===20?40:10;break;
+    case'mwarn':p.mw=false;break;case'mcaut':p.mc=false;break;
+    case'gear':setGear(p.gearLever==='DOWN'?'UP':'DOWN');if(p.gearLever==='UP'&&p.onGround)sysMsg('Gear lever locked down on the ground.');break;
+    case'splr':p.splrArm=!p.splrArm;break;
+    case'ab':p.autobrake=v;break;
+    case'tocfg':if(!p.onGround)break;if(p.flapLever>=1&&p.flapLever<=3&&p.sb===0){p.toConfigOk=true;sysMsg('T.O CONFIG NORMAL.');}else{p.toConfigOk=false;p.toCfgFail=simT;}break;
+    case'flap':setFlaps(+v);break;
+    case'thr':p.lever=+v;if(p.lever<0&&!p.onGround)p.lever=0;break;
+    case'swap':[p.com1.act,p.com1.sby]=[p.com1.sby,p.com1.act];tone(2400,0.03,'sine',0.03);break;
+    case'rk':if(v==='m'){let m=Math.floor(p.com1.sby/1000)+ +w;if(m>136)m=118;if(m<118)m=136;p.com1.sby=m*1000+p.com1.sby%1000;}else p.com1.sby=stepKhz(p.com1.sby,+w);break;
+    case'kb':p.com1.sby=+v;break;
+    case'co':userCallout(v);break;
+    case'cmd':cptCommand(v);break;
+    case'ctab':CK.tab=v;renderChk();break;
+    case'citem':chkClick(+v);break;
+  }
+  if(MODE==='pilot'){syncDom();renderCoach();}
+}
+const ENDS=[0,5,10,15,25,30,35,40,50,55,60,65,75,80,85,90];
+function stepKhz(f,d){const m=Math.floor(f/1000),k=f%1000;let h=Math.floor(k/100),e=k%100,i=ENDS.indexOf(e);if(i<0)i=0;i+=d;if(i>=ENDS.length){i=0;h=(h+1)%10;}if(i<0){i=ENDS.length-1;h=(h+9)%10;}return m*1000+h*100+ENDS[i];}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;act(t.dataset.act,t);});
+$('#sbRange').addEventListener('input',e=>{if(P)act('sb:'+e.target.value);});
+$('#txForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#txIn').value.trim();if(v){transmit(v);$('#txIn').value='';}});
+$('#aTxForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#aTxIn').value.trim();if(v){atcTransmit(v);$('#aTxIn').value='';}});
+const PTT={on:false,kind:null};
+function pttDown(kind){
+  if(PTT.on)return;PTT.on=true;PTT.kind=kind;
+  if(NET.on)pttNet(true,kind==='int'?'int':'rad');
+  const line=kind==='atc'?$('#aMicLine'):$('#micLine'),btn=kind==='atc'?$('#aPtt'):kind==='int'?$('#intBtn'):$('#ptt');
+  btn.classList.add('live');
+  if(kind==='int'){line.textContent='🎧 Intercom: only your crew hears you.';return;}
+  if(NET.on)tone(1500,0.05,'square',0.03);
+  micStart(t=>kind==='atc'?atcTransmit(t,true):transmit(t,false,true),line,btn);
+  if(NET.on&&!MIC.ok)line.textContent='📻 Transmitting: others hear your voice. (This browser can’t make subtitles.)';
+}
+function pttUp(){
+  if(!PTT.on)return;const k=PTT.kind;PTT.on=false;
+  if(NET.on)pttNet(false,k==='int'?'int':'rad');
+  const btn=k==='atc'?$('#aPtt'):k==='int'?$('#intBtn'):$('#ptt');btn.classList.remove('live');
+  if(k==='int'){$('#micLine').textContent='';return;}
+  micStop();
+}
+function bindPtt(btn,kind){
+  const down=e=>{e.preventDefault();pttDown(kind);},up=e=>{e.preventDefault();pttUp();};
+  btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);btn.addEventListener('pointerleave',()=>{if(PTT.on&&PTT.kind===kind)pttUp();});btn.addEventListener('pointercancel',up);
+}
+bindPtt($('#ptt'),'pilot');bindPtt($('#aPtt'),'atc');bindPtt($('#intBtn'),'int');
+// throttle drag
+(function(){const tr=$('#thrTrack');let drag=false;
+  const set=e=>{const r=tr.getBoundingClientRect();let v=45-((e.clientY-r.top)/r.height)*65;for(const d of [-20,0,25,35,45])if(Math.abs(v-d)<2.5)v=d;if(P){act('thr:'+clamp(Math.round(v*2)/2,P.onGround?-20:0,45));}};
+  tr.addEventListener('pointerdown',e=>{drag=true;tr.setPointerCapture(e.pointerId);set(e);});
+  tr.addEventListener('pointermove',e=>{if(drag)set(e);});
+  tr.addEventListener('pointerup',()=>{drag=false;renderCoach();});
+  const thr=$('#thr');for(const[v,l]of [[45,'TOGA'],[35,'FLX/MCT'],[25,'CL'],[0,'IDLE'],[-20,'REV']]){const b=document.createElement('button');b.className='det';b.dataset.act='thr:'+v;b.textContent=l;b.style.top=`calc(6px + ${(45-v)/65} * (100% - 12px))`;thr.appendChild(b);}
+})();
+// sidestick pad
+(function(){const pad=$('#stick'),knob=$('#stickKnob');
+  const set=e=>{const r=pad.getBoundingClientRect(),dx=clamp((e.clientX-r.left-r.width/2)/(r.width/2-17),-1,1),dy=clamp((e.clientY-r.top-r.height/2)/(r.height/2-17),-1,1);Stick.touch={p:dy,r:dx};knob.style.transform=`translate(${dx*(r.width/2-17)}px,${dy*(r.height/2-17)}px)`;};
+  pad.addEventListener('pointerdown',e=>{pad.setPointerCapture(e.pointerId);set(e);});
+  pad.addEventListener('pointermove',e=>{if(Stick.touch)set(e);});
+  const up=()=>{Stick.touch=null;knob.style.transform='';};pad.addEventListener('pointerup',up);pad.addEventListener('pointercancel',up);
+})();
+const brk=$('#brkBtn');brk.addEventListener('pointerdown',()=>{if(P)act('brk:1');});brk.addEventListener('pointerup',()=>{if(P)act('brk:0');});brk.addEventListener('pointerleave',()=>{if(P&&P.brakeManual)act('brk:0');});
+const KEYMAP={ArrowUp:1,ArrowDown:1,ArrowLeft:1,ArrowRight:1,w:1,a:1,s:1,d:1};
+window.addEventListener('keydown',e=>{
+  if(e.target.matches('input,select,textarea'))return;
+  const k=e.key.length===1?e.key.toLowerCase():e.key;
+  if(k==='t'&&!e.repeat){if(MODE==='pilot'){pttDown('pilot');e.preventDefault();return;}if(MODE==='atc'){pttDown('atc');e.preventDefault();return;}}
+  if(k==='y'&&!e.repeat&&MODE==='pilot'&&NET.on){pttDown('int');e.preventDefault();return;}
+  if(k==='t'||k==='y'){e.preventDefault();return;}
+  if(MODE!=='pilot'||!P)return;
+  if(KEYMAP[k]){Stick.keys[k]=true;e.preventDefault();return;}
+  const p=P;let handled=true;
+  switch(k){
+    case'PageUp':case'=':case'+':act('thrd:2.5');break;
+    case'PageDown':case'-':act('thrd:-2.5');break;
+    case'1':act('thr:-20');break;case'2':act('thr:0');break;case'3':act('thr:25');break;case'4':act('thr:35');break;case'5':act('thr:45');break;
+    case'f':act('flap:'+Math.min(4,p.flapLever+1));break;case'v':act('flap:'+Math.max(0,p.flapLever-1));break;
+    case'g':act('gear');break;case'b':if(!e.repeat)act('brk:1');break;case' ':act('apoff');break;case'p':act('pause');break;
+    default:handled=false;
+  }
+  if(handled){e.preventDefault();syncDom();renderCoach();}
+});
+window.addEventListener('keyup',e=>{
+  const k=e.key.length===1?e.key.toLowerCase():e.key;
+  if(k==='t'||k==='y'){pttUp();return;}
+  if(KEYMAP[k])Stick.keys[k]=false;if(k==='b'&&P)act('brk:0');
+});
+$('#radar').addEventListener('click',e=>{const r=e.currentTarget.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let best=null,bd=1e9;
+  for(const a of A.list){if(!a.lab)continue;const d1=Math.hypot(mx-a.lab.s,my-a.lab.t),inL=mx>=a.lab.x&&mx<=a.lab.x+a.lab.w&&my>=a.lab.y&&my<=a.lab.y+a.lab.h;const d=inL?0:d1;if(d<bd){bd=d;best=a;}}
+  if(best&&bd<18){A.sel=best.id;fillCmd();renderStrips();}});
+
+/* =====================================================================
+   Main loop
+   ===================================================================== */
+let last=performance.now(),uiT=0,stT=0,skT=0;
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000);last=now;
+  const host=!NET.on||NET.host,running=NET.on?NET.started:true;
+  if(host&&running){
+    if(P&&!P.finished&&(NET.on||MODE==='pilot')&&!paused){
+      let sc=1,fr=false;
+      if(GM==='learn'&&!NET.on){sc=LEARN.slow;fr=LEARN.hold||LEARN.tour;}
+      let acc=dt*(fr?1:sc);while(acc>1e-6){const h=Math.min(acc,1/60);simTick(h,fr);acc-=h;}
+    }
+    const atcOn=NET.on?NET.simAtc:MODE==='atc';
+    if(atcOn&&!(NET.on?paused:A.paused)){
+      const fr=GM==='learn'&&!NET.on&&(ALEARN.hold||ALEARN.tour),ts=NET.on||fr?1:A.ts;
+      let acc=dt*ts;while(acc>1e-6){const h=Math.min(acc,0.1);atcTick(h,fr);acc-=h;}
+    }
+    if(NET.on&&NET.host&&now-stT>80){stT=now;netState();}
+  }
+  if(NET.on&&!NET.host&&NET.started&&NET.me.role==='CPT'&&MODE==='pilot'){
+    updStick(dt);
+    if(now-skT>50){skT=now;if(Math.abs(Stick.p-NET.lp)>0.01||Math.abs(Stick.r-NET.lr)>0.01){NET.lp=Stick.p;NET.lr=Stick.r;toHost({t:'stick',p:Stick.p,r:Stick.r});}}
+  }
+  if(MODE==='pilot'&&P){
+    drawPFD();drawND();drawEWD();
+    uiT+=dt;if(uiT>0.12){uiT=0;syncDom();const s=coachStep(),key=JSON.stringify(s);learnUpdate(s,key);if(key!==coachLast||LEARN.dirty){coachLast=key;LEARN.dirty=false;renderCoach();}}
+  }else if(MODE==='atc'){
+    drawRadar();uiT+=dt;if(uiT>0.5){uiT=0;renderStrips();fillCmd();renderAtcCoach();}
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+
+</body></html>
