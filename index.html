@@ -1807,7 +1807,7 @@ function netHost(){
   if(!netAvailable())return;netLeave(true);
   NET.code=mkCode();mpMsg('Creating game…');
   const peer=new Peer('gvafd-'+NET.code,{debug:0});NET.peer=peer;NET.host=true;
-  peer.on('open',id=>{NET.on=true;NET.me={id,name:myName(),role:''};NET.roster=[{id,name:NET.me.name,role:'',host:true}];NET.humans={CPT:false,FO:false,ATC:false};showLobby();initAudio();});
+  peer.on('open',id=>{NET.on=true;NET.me={id,name:myName(),role:''};NET.roster=[{id,name:NET.me.name,role:'',host:true,mic:undefined}];NET.humans={CPT:false,FO:false,ATC:false};showLobby();initAudio();});
   peer.on('connection',c=>{c.on('open',()=>{NET.conns[c.peer]=c;});c.on('data',m=>onMsg(m,c.peer));c.on('close',()=>dropPeer(c.peer));c.on('error',()=>dropPeer(c.peer));});
   peer.on('call',answerCall);peer.on('error',netErr);
 }
@@ -1851,7 +1851,7 @@ function renderLobby(){
   if(MODE!=='lobby')return;
   $('#lbCode').textContent=NET.code;
   $('#lbSeats').innerHTML=SEATS.map(([r,n,d])=>{const who=NET.roster.find(x=>x.role===r),mine=who&&who.id===NET.me.id;
-    return`<div class="seat"><span class="lbl">${esc(d)}</span><h3>${esc(n)}</h3><p>${who?esc(who.name)+(mine?' (you)':''):'<i>Empty: the computer</i>'}</p><button class="btn" data-act="seat:${mine?'':r}" ${who&&!mine?'disabled':''}>${mine?'Leave seat':'Take seat'}</button></div>`;}).join('');
+    return`<div class="seat"><span class="lbl">${esc(d)}</span><h3>${esc(n)}</h3><p>${who?esc(who.name)+(mine?' (you)':'')+micOf(who):'<i>Empty: the computer</i>'}</p><button class="btn" data-act="seat:${mine?'':r}" ${who&&!mine?'disabled':''}>${mine?'Leave seat':'Take seat'}</button></div>`;}).join('');
   const un=NET.roster.filter(r=>!r.role);
   $('#lbOthers').textContent=`${NET.roster.length} connected. `+(un.length?'No seat yet: '+un.map(r=>r.name+(r.id===NET.me.id?' (you)':'')).join(', '):'Everyone has a seat.')+(NET.stream?' · Microphone ready.':' · Microphone not allowed: others won’t hear you, but you can type.');
   $('#lbHostOpts').hidden=!NET.host;$('#lbStart').hidden=!NET.host;
@@ -1886,6 +1886,7 @@ function applyState(m){
 function onMsg(m,from){
   switch(m.t){
     case'hello':if(NET.host)addRoster(from,m.name);return;
+    case'mic':if(NET.host){const r=NET.roster.find(x=>x.id===from);if(r){r.mic=!!m.ok;pushRoster();}}return;
     case'seat':if(NET.host)setSeat(from,m.role);return;
     case'act':if(NET.host&&P)act(m.a);return;
     case'stick':if(NET.host)Stick.remote={p:+m.p||0,r:+m.r||0};return;
@@ -1902,17 +1903,27 @@ function onMsg(m,from){
   }
 }
 /* ----- real-voice radio */
-async function initAudio(){
-  try{NET.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});NET.stream.getAudioTracks().forEach(t=>t.enabled=false);}
-  catch(e){NET.stream=null;}
-  renderLobby();callPeers();
+function initAudio(){
+  NET.audioReady=(async()=>{
+    try{NET.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});NET.stream.getAudioTracks().forEach(t=>t.enabled=false);}
+    catch(e){NET.stream=null;}
+    const tr=NET.stream&&NET.stream.getAudioTracks()[0];
+    if(tr)for(const c of Object.values(NET.calls)){try{const snd=c.peerConnection&&c.peerConnection.getSenders().find(x=>!x.track||x.track.kind==='audio');if(snd)snd.replaceTrack(tr);}catch(e){}}
+    toHost({t:'mic',ok:!!NET.stream});
+    renderLobby();callPeers();
+  })();
+  return NET.audioReady;
 }
 function silentStream(){const c=actx();if(!c)return new MediaStream();return c.createMediaStreamDestination().stream;}
 function callPeers(){
+  if(!NET.peer||!NET.on||!NET.audioReady)return;
+  NET.audioReady.then(callPeersNow);
+}
+function callPeersNow(){
   if(!NET.peer||!NET.on)return;
   for(const r of NET.roster){if(r.id===NET.me.id||NET.calls[r.id])continue;if(NET.me.id<r.id){try{const c=NET.peer.call(r.id,NET.stream||silentStream());if(c)wireCall(c);}catch(e){}}}
 }
-function answerCall(c){c.answer(NET.stream||silentStream());wireCall(c);}
+function answerCall(c){NET.calls[c.peer]=c;Promise.resolve(NET.audioReady).then(()=>{c.answer(NET.stream||silentStream());wireCall(c);});}
 function wireCall(c){
   NET.calls[c.peer]=c;
   c.on('stream',st=>{let a=NET.audios[c.peer];if(!a){a=document.createElement('audio');a.autoplay=true;a.hidden=true;document.body.appendChild(a);NET.audios[c.peer]=a;}a.srcObject=st;a.muted=true;a.play().catch(()=>{});});
@@ -1924,6 +1935,7 @@ function pttNet(on,ch){
   const m={t:'ptt',id:NET.me.id,role:NET.me.role,name:NET.me.name,on,ch,freq:P?P.com1.act:0};
   if(NET.host)netSend(m);else toHost(m);
 }
+function micOf(r){return r.mic===undefined?'':r.mic?' 🎙':' (no mic)';}
 function audible(m){
   const me=NET.me.role,myPilot=me==='CPT'||me==='FO',fromPilot=m.role==='CPT'||m.role==='FO';
   if(m.ch==='int')return myPilot&&fromPilot;
